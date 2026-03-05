@@ -1,0 +1,9 @@
+# IDE & Editor
+.vscode/
+
+# Build artifacts (also see Keilkill.bat)
+
+# Documentation
+dev_log.md
+
+# OS generated files
