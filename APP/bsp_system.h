@@ -15,9 +15,12 @@ extern "C" {
 
 /* 外设头文件 */
 #include "adc.h"
+#include "tim.h"
+#include "sys.h"
 
 /* 应用层头文件 */
 #include "mq2.h"                        // MQ2 烟雾传感器模块
+#include "dht11.h"                      // DHT11 温湿度传感器模块
 #include "scheduler.h"
 
 
