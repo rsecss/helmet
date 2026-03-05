@@ -26,7 +26,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(72MHz HSE+PLL) → 外设初始化(GPIO, USART1) → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE+PLL) → 外设初始化(GPIO, DMA, USART1, ADC1) → ADC DMA 启动 → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
 ### 任务调度器（`APP/scheduler.c`）
 
@@ -41,6 +41,7 @@ helmet.ioc      CubeMX 工程配置文件
 | 外设    | 引脚       | 配置                      |
 |---------|-----------|--------------------------|
 | USART1  | PA9/PA10  | 115200-8N1, printf 重定向 |
+| ADC1    | PA0       | MQ2 烟雾传感器，DMA 循环采样 |
 | SWD     | PA13/PA14 | 调试接口                  |
 | HSE     | PD0/PD1   | 外部 8MHz 晶振            |
 
@@ -60,9 +61,11 @@ helmet.ioc      CubeMX 工程配置文件
 
 ## 开发文档
 
-- `dev_log.md`（开发日志）记录每次功能变更、问题排查、设计决策，提交代码前必须同步更新
-- 开发文档和日志不纳入版本控制（已在 `.gitignore` 中排除），仅本地维护
-- **索引同步**：新增模块、外设变更或架构调整时，须同步更新 `README.md` 和 `CLAUDE.md` 中的相关章节
+- `dev_log.md`（开发日志）记录每次功能变更、问题排查、设计决策，不纳入版本控制（已在 `.gitignore` 中排除），仅本地维护
+- **每次提交前必须同步更新**：
+  - `dev_log.md`：记录本次变更内容、日期、设计决策
+  - `README.md`：涉及外设、功能模块、项目结构变动时更新对应章节
+  - `CLAUDE.md`：涉及架构、外设配置、执行流程、约定变更时更新对应章节
 
 ## 关键约定
 

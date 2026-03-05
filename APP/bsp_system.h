@@ -10,16 +10,19 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdint.h>
+#include <math.h>
 
-#include <stdint.h>                    // 可以不包含
-
-
+/* 外设头文件 */
+#include "adc.h"
 
 /* 应用层头文件 */
+#include "mq2.h"                        // MQ2 烟雾传感器模块
 #include "scheduler.h"
 
 
 /* 全局变量，数组声明 */
+extern uint32_t dma_buff[30];
 
 
 #ifdef __cplusplus

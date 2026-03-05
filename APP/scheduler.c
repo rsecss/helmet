@@ -11,7 +11,7 @@ typedef struct {
 
 /* 静态调度器任务列表，每个任务包括任务函数、执行周期（ms）、上次执行时间（ms） */
 static task_t scheduler_task[] = {
-    
+    {mq2_task, 100, 0},     // MQ2 传感器任务，每 100 ms 执行一次
 };
 
 /**
