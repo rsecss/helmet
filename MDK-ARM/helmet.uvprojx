@@ -926,11 +926,6 @@
               <FileType>5</FileType>
               <FilePath>..\APP\dht11.h</FilePath>
             </File>
-            <File>
-              <FileName>sys.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\APP\sys.h</FilePath>
-            </File>
           </Files>
         </Group>
       </Groups>
