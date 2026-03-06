@@ -13,6 +13,7 @@ typedef struct {
 static task_t scheduler_task[] = {
     {mq2_task, 100, 0},         // MQ2 传感器任务，每 100 ms 执行一次
     {dht11_task, 1000, 0},      // DHT11 传感器任务，每 1000 ms 执行一次
+    {mpu6050_task, 10, 0}       // MPU6050 传感器任务，每 10 ms 执行一次
 };
 
 /**

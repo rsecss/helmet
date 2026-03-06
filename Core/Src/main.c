@@ -20,6 +20,7 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
+#include "i2c.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -94,9 +95,12 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dma_buff[0], 30); // 启动 ADC1 的 DMA 模式，将采集到的 30 个数据存储到 dma_buff 数组中
   DHT11_Init();       // DHT11 温湿度传感器初始化
+  MPU_Init();         // MPU6050 姿态传感器初始化
+  mpu_dmp_init();     // DMP（数字运动处理器）初始化
   scheduler_init();   // 初始化调度器
   /* USER CODE END 2 */
 
