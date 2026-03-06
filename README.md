@@ -1,4 +1,4 @@
-# SmartHelm — 智能头盔固件
+# SmartHelm — 智能头盔
 
 基于 STM32F103C8T6 的开源智能头盔嵌入式项目。
 

@@ -1,189 +1,179 @@
 #include "dht11.h"
 
 /**
- * @brief   微秒级延时函数
- * @param   us 延时的微秒数
+ * @brief   配置 DHT11 数据引脚为输入模式（上拉）
+ */
+static void DHT11_IO_IN(void)
+{
+    GPIO_InitTypeDef s = {0};
+    s.Pin  = DHT11_PIN;
+    s.Mode = GPIO_MODE_INPUT;
+    s.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(DHT11_PORT, &s);
+}
+
+/**
+ * @brief   配置 DHT11 数据引脚为推挽输出模式
+ */
+static void DHT11_IO_OUT(void)
+{
+    GPIO_InitTypeDef s = {0};
+    s.Pin   = DHT11_PIN;
+    s.Mode  = GPIO_MODE_OUTPUT_PP;
+    s.Pull  = GPIO_NOPULL;
+    s.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(DHT11_PORT, &s);
+}
+
+/**
+ * @brief   微秒级延时（基于 TIM1, 1MHz）
+ * @param   us  延时微秒数
  */
 void Delay_us(uint16_t us)
 {
-    // 计算计数器起始值，确保延时精度
-    uint16_t differ = 0xffff - us - 5;
-    __HAL_TIM_SET_COUNTER(&htim1, differ); // 设置定时器初始值
-    HAL_TIM_Base_Start(&htim1);            // 启动定时器
-
-    // 循环等待直到延时完成
-    while (differ < 0xffff - 5)
+    uint16_t differ = 0xFFFF - us - 5;
+    __HAL_TIM_SET_COUNTER(&htim1, differ);
+    HAL_TIM_Base_Start(&htim1);
+    while (differ < 0xFFFF - 5)
     {
-        differ = __HAL_TIM_GET_COUNTER(&htim1); // 获取当前计数值
+        differ = __HAL_TIM_GET_COUNTER(&htim1);
     }
-    HAL_TIM_Base_Stop(&htim1); // 停止定时器
+    HAL_TIM_Base_Stop(&htim1);
 }
 
 /**
- * @brief   复位 DHT11 函数
- */
-void DHT11_Rst(void)
-{
-    DHT11_IO_OUT();    // 设置数据引脚为输出模式
-    DHT11_DQ_OUT = 0;  // 拉低数据线
-    HAL_Delay(20);     // 保持低电平至少 18ms
-    DHT11_DQ_OUT = 1;  // 拉高数据线
-    Delay_us(30);      // 保持高电平 20~40us
-}
-
-/**
- * @brief   检测 DHT11 响应函数
- * @return  0 表示检测到 DHT11，1 表示未检测到
- */
-uint8_t DHT11_Check(void)
-{
-    uint8_t retry = 0;
-    DHT11_IO_IN(); // 设置数据引脚为输入模式
-
-    // 等待 DHT11 拉低数据线（40~80us）
-    while (DHT11_DQ_IN && retry < 100)
-    {
-        retry++;
-        Delay_us(1);
-    }
-    if (retry >= 100)
-        return 1; // 超时，未检测到 DHT11
-
-    retry = 0;
-    // 等待 DHT11 拉高数据线（40~80us）
-    while (!DHT11_DQ_IN && retry < 100)
-    {
-        retry++;
-        Delay_us(1);
-    }
-    if (retry >= 100)
-        return 1; // 超时，未检测到 DHT11
-
-    return 0; // 成功检测到 DHT11
-}
-
-/**
- * @brief   从 DHT11 读取一个位
- * @return  读取到的位（0 或 1）
- */
-uint8_t DHT11_Read_Bit(void)
-{
-    uint8_t retry = 0;
-
-    // 等待数据线变为低电平
-    while (DHT11_DQ_IN && retry < 100)
-    {
-        retry++;
-        Delay_us(1);
-    }
-
-    retry = 0;
-    // 等待数据线变为高电平
-    while (!DHT11_DQ_IN && retry < 100)
-    {
-        retry++;
-        Delay_us(1);
-    }
-
-    // 延时等待，判断是短高电平（0）还是长高电平（1）
-    Delay_us(40);
-    if (DHT11_DQ_IN)
-        return 1; // 长高电平表示 1
-    else
-        return 0; // 短高电平表示 0
-}
-
-/**
- * @brief   从 DHT11 读取一个字节
- * @return  读取到的字节数据
- */
-uint8_t DHT11_Read_Byte(void)
-{
-    uint8_t i, dat;
-    dat = 0;
-    for (i = 0; i < 8; i++) // 读取 8 位数据
-    {
-        dat <<= 1;          // 左移一位
-        dat |= DHT11_Read_Bit(); // 读取一位数据并存入
-    }
-    return dat;
-}
-
-/**
- * @brief   从 DHT11 读取一次完整数据
- * @param   temp 存储温度值的指针
- * @param   humi 存储湿度值的指针
- * @return  0 表示读取成功，1 表示读取失败
+ * @brief   读取温湿度数据
+ * @param   temp  温度值输出指针
+ * @param   humi  湿度值输出指针
+ * @retval  0 成功，1 失败
  */
 uint8_t DHT11_Read_Data(uint8_t *temp, uint8_t *humi)
 {
-    uint8_t buf[5]; // 用于存储接收到的 40 位数据（5 个字节）
-    uint8_t i;
+    uint8_t buf[5] = {0};
+    uint8_t retry;
 
-    DHT11_Rst(); // 发送复位信号
-    if (DHT11_Check() == 0) // 检测到 DHT11 响应
+    // 复位：拉低 ≥18ms → 拉高 20~40us
+    DHT11_IO_OUT();
+    HAL_GPIO_WritePin(DHT11_PORT, DHT11_PIN, GPIO_PIN_RESET);
+    HAL_Delay(20);
+    HAL_GPIO_WritePin(DHT11_PORT, DHT11_PIN, GPIO_PIN_SET);
+    Delay_us(30);
+
+    // 等待 DHT11 响应：低 40~80us → 高 40~80us
+    DHT11_IO_IN();
+
+    retry = 0;
+    while (HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
     {
-        for (i = 0; i < 5; i++) // 读取 5 个字节的数据
-        {
-            buf[i] = DHT11_Read_Byte();
-        }
-
-        // 验证校验和是否正确（前四个字节之和等于第五个字节）
-        if ((buf[0] + buf[1] + buf[2] + buf[3]) == buf[4])
-        {
-            *humi = buf[0]; // 湿度整数部分
-            *temp = buf[2]; // 温度整数部分
-        }
-        else
-        {
-            return 1; // 校验和错误，读取失败
-        }
+        retry++;
+        Delay_us(1);
     }
-    else
+    if (retry >= 100)
     {
-        return 1; // 未检测到 DHT11 响应，读取失败
+        return 1;
     }
 
-    return 0; // 读取成功
+    retry = 0;
+    while (!HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
+    {
+        retry++;
+        Delay_us(1);
+    }
+    if (retry >= 100)
+    {
+        return 1;
+    }
+
+    // 读取 40 位数据（5 字节）
+    for (uint8_t i = 0; i < 40; i++)
+    {
+        retry = 0;
+        while (HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
+        {
+            retry++;
+            Delay_us(1);
+        }
+
+        retry = 0;
+        while (!HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
+        {
+            retry++;
+            Delay_us(1);
+        }
+
+        Delay_us(40); // 40us 后采样判断 0/1
+        buf[i / 8] <<= 1;
+        if (HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN))
+        {
+            buf[i / 8] |= 1;
+        }
+    }
+
+    // 校验和验证
+    if ((buf[0] + buf[1] + buf[2] + buf[3]) != buf[4])
+    {
+        return 1;
+    }
+
+    *humi = buf[0];
+    *temp = buf[2];
+    return 0;
 }
 
 /**
- * @brief   初始化 DHT11 函数
- * @return  0 表示初始化成功，1 表示初始化失败
+ * @brief   初始化 DHT11，配置 GPIO 并探测传感器
+ * @retval  0 成功，1 失败
  */
 uint8_t DHT11_Init(void)
 {
-    // 配置 DHT11 数据引脚
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    __HAL_RCC_GPIOA_CLK_ENABLE(); // 启用 GPIOA 时钟
+    uint8_t retry;
 
-    GPIO_InitStruct.Pin = GPIO_PIN_8;       // PA8 引脚
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP; // 推挽输出模式
-    GPIO_InitStruct.Pull = GPIO_NOPULL;     // 不上下拉
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH; // 高速模式
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct); // 初始化 GPIO
+    DHT11_GPIO_CLK_EN();
+    DHT11_IO_OUT();
+    HAL_GPIO_WritePin(DHT11_PORT, DHT11_PIN, GPIO_PIN_SET);
 
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET); // 设置 PA8 为高电平
+    // 复位
+    HAL_GPIO_WritePin(DHT11_PORT, DHT11_PIN, GPIO_PIN_RESET);
+    HAL_Delay(20);
+    HAL_GPIO_WritePin(DHT11_PORT, DHT11_PIN, GPIO_PIN_SET);
+    Delay_us(30);
 
-    DHT11_Rst(); // 发送复位信号
-    return DHT11_Check(); // 检测 DHT11 是否存在
+    // 检测响应
+    DHT11_IO_IN();
+
+    retry = 0;
+    while (HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
+    {
+        retry++;
+        Delay_us(1);
+    }
+    if (retry >= 100)
+    {
+        return 1;
+    }
+
+    retry = 0;
+    while (!HAL_GPIO_ReadPin(DHT11_PORT, DHT11_PIN) && retry < 100)
+    {
+        retry++;
+        Delay_us(1);
+    }
+    if (retry >= 100)
+    {
+        return 1;
+    }
+
+    return 0;
 }
 
-// 湿度和温度变量，用于存储传感器数据
-uint8_t humi; 
-uint8_t temp;
-
 /**
- * @brief   DHT11 温湿度传感器任务函数
- * 
- * @param   None
- * @return  None
+ * @brief   DHT11 调度器任务，周期读取并打印温湿度
  */
+static uint8_t humi;
+static uint8_t temp;
+
 void dht11_task(void)
 {
-    // 读取 DHT11 传感器数据，将温度存储到 temp，湿度存储到 humi
     DHT11_Read_Data(&temp, &humi);
-    
-    // 通过 UART 打印温湿度数据
     printf("temp:%d,humi:%d\r\n", temp, humi);
 }
