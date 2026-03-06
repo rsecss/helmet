@@ -54,7 +54,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | 任务调度器 | `APP/scheduler.c` | 基于 SysTick 的毫秒级轮询协作调度 |
 | MQ2 烟雾传感器 | `APP/mq2.c` | ADC+DMA 采集，计算气体浓度（ppm），100ms 周期 |
 | DHT11 温湿度传感器 | `APP/dht11.c` | 单总线时序通信，读取温度和湿度，1000ms 周期 |
-| MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算，步数检测与振动计算，10ms 周期 |
+| MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒检测，10ms 周期 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构

@@ -26,7 +26,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1) → ADC DMA 启动 → DHT11_Init → MPU_Init → mpu_dmp_init → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1) → ADC DMA 启动 → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
 ### 任务调度器（`APP/scheduler.c`）
 
