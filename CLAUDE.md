@@ -69,6 +69,13 @@ helmet.ioc      CubeMX 工程配置文件
   - `README.md`：涉及外设、功能模块、项目结构变动时更新对应章节
   - `CLAUDE.md`：涉及架构、外设配置、执行流程、约定变更时更新对应章节
 
+## CI/CD
+
+- **质量门禁**（`.github/workflows/quality.yml`）：push main/dev 和 PR main 时触发，执行 cppcheck 静态分析、头文件守卫检查、编码规范检查（BOM/CRLF）
+- **自动发布**（`.github/workflows/release.yml`）：推送 `v*` 标签时触发，使用 git-cliff 基于 Conventional Commits 生成 changelog 并创建 GitHub Release
+- **发布流程**：`git tag v0.x.0 && git push origin v0.x.0`，Release Notes 自动生成
+- APP 目录下的源文件必须通过质量门禁：无 cppcheck 警告、头文件含 `#ifndef` 守卫、UTF-8 无 BOM、LF 行尾
+
 ## 关键约定
 
 - **CubeMX 生成的文件**：所有用户代码必须写在 `USER CODE BEGIN/END` 块内，否则重新生成时会被覆盖

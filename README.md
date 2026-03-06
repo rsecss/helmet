@@ -1,5 +1,7 @@
 # SmartHelm — 智能头盔
 
+[![Quality Gate](https://github.com/rsecss/helmet/actions/workflows/quality.yml/badge.svg)](https://github.com/rsecss/helmet/actions/workflows/quality.yml)
+
 基于 STM32F103C8T6 的开源智能头盔嵌入式项目。
 
 ## 硬件平台

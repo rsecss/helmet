@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 生成 cliff.toml
+        run: |
+          cat > cliff.toml << 'TOML'
+          [changelog]
+          header = ""
+          body = """
+          {% for group, commits in commits | group_by(attribute="group") %}\
+          ### {{ group | upper_first }}
+          {% for commit in commits %}\
+          - {{ commit.message | split(pat="\n") | first | trim }} \
+            ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/rsecss/helmet/commit/{{ commit.id }}))\
+          {% endfor %}
+          {% endfor %}
+          """
+          trim = true
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = true
+          commit_parsers = [
+            { message = "^feat", group = "🚀 Features" },
+            { message = "^fix", group = "🐛 Bug Fixes" },
+            { message = "^docs", group = "📄 Documentation" },
+            { message = "^refactor", group = "🏗️ Refactors" },
+            { message = "^perf", group = "⚡ Performance" },
+            { message = "^test", group = "✅ Tests" },
+            { message = "^(chore|ci)", group = "🔧 Chores" },
+          ]
+          TOML
+
+      - name: 生成 Changelog
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.content }}

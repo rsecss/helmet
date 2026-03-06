@@ -1,0 +1,54 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cppcheck 静态分析
+        run: |
+          sudo apt-get update && sudo apt-get install -y cppcheck
+          cppcheck \
+            --enable=warning,performance,portability \
+            --error-exitcode=1 \
+            --suppress=missingIncludeSystem \
+            -DUSE_HAL_DRIVER -DSTM32F103xB \
+            -I Core/Inc \
+            -I Drivers/STM32F1xx_HAL_Driver/Inc \
+            -I Drivers/CMSIS/Include \
+            -I Drivers/CMSIS/Device/ST/STM32F1xx/Include \
+            APP/
+
+      - name: 头文件守卫检查
+        run: |
+          fail=0
+          for f in APP/*.h; do
+            name=$(basename "$f" .h | tr '[:lower:]' '[:upper:]')_H
+            if ! grep -q "#ifndef $name" "$f"; then
+              echo "::error file=$f::缺少 #ifndef $name 头文件守卫"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: 编码规范检查
+        run: |
+          fail=0
+          for f in $(find APP/ -name '*.c' -o -name '*.h'); do
+            if head -c 3 "$f" | grep -qP '\xef\xbb\xbf'; then
+              echo "::error file=$f::检测到 UTF-8 BOM"
+              fail=1
+            fi
+            if grep -qP '\r\n' "$f"; then
+              echo "::error file=$f::检测到 CRLF 行尾"
+              fail=1
+            fi
+          done
+          exit $fail
