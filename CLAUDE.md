@@ -64,11 +64,13 @@ helmet.ioc      CubeMX 工程配置文件
 
 ## 开发文档
 
-- `dev_log.md`（开发日志）记录每次功能变更、问题排查、设计决策，不纳入版本控制（已在 `.gitignore` 中排除），仅本地维护
+- 开发日志使用 Trellis 的会话日志机制：`.trellis/workspace/<developer>/journal-*.md`（纳入版本控制，由 Trellis 管理）
+  - 通过 `.trellis/scripts/add_session.py` 追加 session，索引 `.trellis/workspace/<developer>/index.md` 自动同步
+  - 每个 session 关联 commit hash 便于追溯
 - **每次提交前必须同步更新**：
-  - `dev_log.md`：记录本次变更内容、日期、设计决策
   - `README.md`：涉及外设、功能模块、项目结构变动时更新对应章节
   - `CLAUDE.md`：涉及架构、外设配置、执行流程、约定变更时更新对应章节
+- 提交后使用 `/trellis:record-session` 或 `add_session.py` 将本次 session 追加到 journal
 
 ## CI/CD
 
