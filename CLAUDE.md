@@ -26,7 +26,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1) → ADC DMA 启动 → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2) → ADC DMA 启动 → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
 ### 任务调度器（`APP/scheduler.c`）
 
@@ -45,6 +45,7 @@ helmet.ioc      CubeMX 工程配置文件
 | TIM1    | 内部时钟   | 微秒级延时，预分频 72-1（1MHz 计数频率） |
 | GPIO    | PA8       | DHT11 数据线，推挽输出高速模式 |
 | I2C1    | PB6/PB7   | MPU6050 六轴传感器，Fast Mode 400kHz |
+| I2C2    | PB10/PB11 | MAX30102 心率血氧传感器，Fast Mode 400kHz |
 | SWD     | PA13/PA14 | 调试接口                  |
 | HSE     | PD0/PD1   | 外部 8MHz 晶振            |
 
