@@ -26,6 +26,7 @@ extern "C" {
 #include "mpu6050.h"                    // MPU6050 六轴传感器模块
 #include "max30102.h"                   // MAX30102 心率血氧传感器模块
 #include "m100pg.h"                     // M100PG 4G 联网模块
+#include "rgb_led.h"                    // 三色 LED 模块
 #include "scheduler.h"
 
 /* MPU6050 相关库 */

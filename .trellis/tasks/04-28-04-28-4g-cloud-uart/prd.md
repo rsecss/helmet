@@ -16,6 +16,13 @@
 - 可参考当前仓库内 `GD32_HAL` 项目的 `APP/usart_app.c`、`Components/websocket/ws_protocol_parser.c`。
 - `资料.md` 是官方硬件资料，但没有规定上云业务协议格式；本任务采用 `GD32_HAL` 的字符串命令格式。
 - 串口收发方式已确定：USART2 使用 `DMA + 空闲中断 + RingBuffer`，实现思路参考 `GD32_HAL/APP/usart_app.c` 与 `GD32_HAL/Components/ringbuffer/`。
+- 2026-04-29 恢复任务时确认：Phase 1 代码已基本落地，`APP/m100pg.c/.h` 已实现 USART2 ReceiveToIdle DMA 启动、接收缓存、调度器上下文转发到 USART1。
+- 当前 `m100pg_task()` 只消费接收缓存并调试转发；尚未实现上传封包、下发命令解析、LED 控制。
+- `APP/scheduler.c` 当前启用 `max30102_task` 与 `m100pg_task`，`mq2_task`、`dht11_task`、`mpu6050_task` 仍被注释，若 Phase 2 上传真实传感器值，需要恢复这些任务或定义取值兜底。
+- 数据来源现状：MPU6050 和 MAX30102 已在头文件导出姿态/心率血氧变量；MQ2 的 `ppm` 是 `.c` 全局变量但未在 `mq2.h` 声明；DHT11 的 `temp/humi` 是 `.c` 内 `static` 变量，当前不能被 `m100pg.c` 直接读取。
+- PA8 当前被 DHT11 用作单总线数据脚；PRD 早期把 PA8 当作 LED 控制脚，这会与 DHT11 冲突，Phase 2 前必须重新确认 LED 控制目标。
+- 2026-04-29 用户确认：4G 基础调试已完成；正式上云封包、下发解析、LED 控制前，需要先完成三色 LED 模块开发和调试。
+- 已创建前置子任务：`.trellis/tasks/04-29-tri-color-led`。
 
 ## Assumptions
 
@@ -27,11 +34,14 @@
 
 ## Open Questions
 
-- 当前无阻塞问题。用户已确认上传帧使用默认字段集合：温湿度、烟雾、姿态、心率、血氧、LED 状态。
+- LED 控制目标需要确认：不能继续默认使用 PA8，因为 PA8 已被 DHT11 占用。
+- 三色 LED 的 R/G/B 引脚和共阳/共阴类型尚未确认；确认前不能进入 LED 模块实现。
+- 用户已确认上传帧使用默认字段集合：温湿度、烟雾、姿态、心率、血氧、LED 状态。
 
 ## Requirements
 
 - 当前阶段只实现 USART2 → USART1 调试转发，封包上传、云端下发解析、LED 控制留到下一阶段。
+- 4G Phase 2 进入前必须先完成三色 LED 模块；`m100pg` 不直接操作 LED GPIO，只调用 LED 模块接口。
 - 封装传感器数据上传函数。
 - 通过 USART2 向 4G 模块/云平台发送上传数据。
 - 接收 USART2 数据并转发到 USART1 调试输出。
@@ -78,12 +88,12 @@
 - 语雀链接通过 Grok fetch/search 未能获取公开内容，暂不能从外部确认协议帧格式。
 - `资料.md` 确认 M100MG-B1/M100PG 类 DTU 为单 TTL 串口 DTU，适合设备控制、状态检测、传感器数据采集等通过 4G 与服务器通信的场景。
 - `资料.md` 确认串口兼容 3.3V/5V 电平，波特率范围 1200-460800，支持 TCP/UDP/MQTT/HTTP/WebSocket 等，但未定义业务协议。
-- `APP/m100pg.c` / `APP/m100pg.h` 当前为空文件，可作为本次 4G 模块实现入口。
+- `APP/m100pg.c` / `APP/m100pg.h` 已作为 4G 模块实现入口，当前覆盖 Phase 1 调试转发链路。
 - CubeMX 已生成 USART2：`huart2`、`MX_USART2_UART_Init()`、PA2/PA3、USART2 IRQ、DMA1 Channel6 RX、`MX_USART2_UART_Init()` 调用已落盘。
-- 当前尚未实现 `HAL_UARTEx_RxEventCallback()` 用户逻辑和 `HAL_UARTEx_ReceiveToIdle_DMA(&huart2, ...)` 启动调用。
+- 当前已实现 `HAL_UARTEx_RxEventCallback()` 转调 `m100pg_rx_event_callback()`，并在 `m100pg_init()` 中启动 `HAL_UARTEx_ReceiveToIdle_DMA(&huart2, ...)`。
 - `Core/Src/usart.c` 确认 USART2 参数为 115200, 8N1, TX/RX, no flow control；USART2 RX DMA 为 `DMA1_Channel6`，Normal 模式。
 - `Core/Src/dma.c` 已使能 `DMA1_Channel6_IRQn`；`Core/Src/stm32f1xx_it.c` 已生成 `DMA1_Channel6_IRQHandler()` 和 `USART2_IRQHandler()`。
-- `Core/Src/gpio.c` 中 PA8 已配置为推挽输出并默认置高，可作为 MVP 的 LED 控制对象。
+- PA8 不应再作为 MVP LED 控制对象，因为 DHT11 驱动会动态切换 PA8 输入/输出用于单总线通信。
 - `APP/scheduler.c` 当前只启用 `max30102_task`，其他传感器任务被注释；4G 上传时需要确认是否恢复 MQ2/DHT11/MPU6050 任务。
 - 设计约束：建议新增 `debug_uart_write()` / `m100pg_set_debug_forward()` 一类边界，4G 模块只调用调试抽象，不直接绑定 USART1。
 

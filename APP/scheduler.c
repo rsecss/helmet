@@ -15,7 +15,8 @@ static task_t scheduler_task[] = {
     // {dht11_task, 1000, 0},      // DHT11 传感器任务，每 1000 ms 执行一次
     // {mpu6050_task, 10, 0},      // MPU6050 传感器任务，每 10 ms 执行一次
     {max30102_task, 50, 0},     // MAX30102 心率血氧任务，每 50 ms 执行一次
-    {m100pg_task, 10, 0}        // M100PG 串口转发任务，每 10 ms 执行一次
+    {m100pg_task, 10, 0},       // M100PG 串口转发任务，每 10 ms 执行一次
+    {rgb_led_task, 1000, 0}     // 三色 LED 测试任务，每 1000 ms 白色闪烁一次
 };
 
 /**
