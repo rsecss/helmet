@@ -312,3 +312,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 4G DTU 基础透传链路
+
+**Date**: 2026-04-29
+**Task**: 4G DTU 基础透传链路
+**Branch**: `dev`
+
+### Summary
+
+完成 M100PG 4G DTU 基础通信链路：接入 USART2 115200-8N1、RX DMA 空闲中断、ring buffer 缓存、USART1 调试转发和 m100pg_send_bytes 底层发送接口；同步 README/CLAUDE、helmet.ioc 与 Keil 工程配置。后续继续做正式上传封包和云端下发解析。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `774c2dd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
