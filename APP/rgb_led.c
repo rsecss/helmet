@@ -10,6 +10,24 @@
 static rgb_led_color_t rgb_led_current_color = RGB_LED_COLOR_OFF;
 
 /**
+ * @brief       初始化 RGB 三路 GPIO 输出模式
+ * @param       无
+ * @retval      无
+ */
+static void rgb_led_gpio_init(void)
+{
+    GPIO_InitTypeDef gpio_init = {0};
+
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    gpio_init.Pin = RGB_LED_R_PIN | RGB_LED_G_PIN | RGB_LED_B_PIN;
+    gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio_init.Pull = GPIO_NOPULL;
+    gpio_init.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOB, &gpio_init);
+}
+
+/**
  * @brief       按共阴极逻辑写入 RGB 三路 GPIO
  * @param       red 红色通道，1 点亮，0 熄灭
  * @param       green 绿色通道，1 点亮，0 熄灭
@@ -56,6 +74,36 @@ void rgb_led_set_color(rgb_led_color_t color)
 }
 
 /**
+ * @brief       设置三色 LED 为白色
+ * @param       无
+ * @retval      无
+ */
+void rgb_led_set_white(void)
+{
+    rgb_led_set_color(RGB_LED_COLOR_WHITE);
+}
+
+/**
+ * @brief       设置三色 LED 为红色
+ * @param       无
+ * @retval      无
+ */
+void rgb_led_set_red(void)
+{
+    rgb_led_set_color(RGB_LED_COLOR_RED);
+}
+
+/**
+ * @brief       设置三色 LED 为绿色
+ * @param       无
+ * @retval      无
+ */
+void rgb_led_set_green(void)
+{
+    rgb_led_set_color(RGB_LED_COLOR_GREEN);
+}
+
+/**
  * @brief       设置云端控制用开关状态
  * @param       enabled 1 点亮白色，0 关闭
  * @retval      无
@@ -63,7 +111,7 @@ void rgb_led_set_color(rgb_led_color_t color)
 void rgb_led_set_enabled(uint8_t enabled)
 {
     if (enabled != 0U) {
-        rgb_led_set_color(RGB_LED_COLOR_WHITE);
+        rgb_led_set_white();
     } else {
         rgb_led_off();
     }
@@ -107,17 +155,18 @@ uint8_t rgb_led_get_enabled(void)
  */
 void rgb_led_init(void)
 {
-    rgb_led_off();
+    rgb_led_gpio_init();
+    rgb_led_set_white();
 }
 
 /**
- * @brief       三色 LED 调度器测试任务
+ * @brief       三色 LED 手动测试任务
  * @param       无
  * @retval      无
  */
 void rgb_led_task(void)
 {
-    /* 由 scheduler 每 1000ms 调用一次，用白色闪烁验证三路 GPIO。*/
+    /* 手动调用时用白色闪烁验证三路 GPIO */
     if (rgb_led_current_color == RGB_LED_COLOR_OFF) {
         rgb_led_set_color(RGB_LED_COLOR_WHITE);
     } else {
