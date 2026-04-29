@@ -312,3 +312,101 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 4G DTU 基础透传链路
+
+**Date**: 2026-04-29
+**Task**: 4G DTU 基础透传链路
+**Branch**: `dev`
+
+### Summary
+
+完成 M100PG 4G DTU 基础通信链路：接入 USART2 115200-8N1、RX DMA 空闲中断、ring buffer 缓存、USART1 调试转发和 m100pg_send_bytes 底层发送接口；同步 README/CLAUDE、helmet.ioc 与 Keil 工程配置。后续继续做正式上传封包和云端下发解析。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `774c2dd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 9: 新增三色 LED 模块
+
+**Date**: 2026-04-29
+**Task**: 新增三色 LED 模块
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| 项目 | 内容 |
+|------|------|
+| 三色 LED 模块 | 新增 `APP/rgb_led.c/.h`，封装共阴 RGB LED 的颜色、开关、状态读取和 1000ms 白色闪烁测试任务。 |
+| 硬件映射 | PB12=R、PB13=G、PB14=B，公共端接地，共阴极，高电平点亮，默认低电平熄灭。 |
+| 调度与初始化 | 在 `APP/bsp_system.h` 引入模块，在 `APP/scheduler.c` 注册 `rgb_led_task()`，在 `Core/Src/main.c` 调用 `rgb_led_init()`。 |
+| CubeMX/Keil | `helmet.ioc` 增加 PB12/PB13/PB14 GPIO Output；`MDK-ARM/helmet.uvprojx` 纳入 RGB LED 源文件。 |
+| 规则沉淀 | 更新 `AGENTS.md`、`CLAUDE.md`、`.trellis/spec/backend/*`，明确模块硬件映射集中在模块 `.c` 顶部，调用方不依赖 CubeMX `main.h` 标签宏。 |
+| 4G 前置关系 | 更新 4G 任务 PRD，记录 4G Phase 2 前先完成三色 LED 模块，后续 `m100pg` 只调用 LED 公开接口。 |
+
+**提交**：
+- `4b4fe05 feat(rgb-led): 新增三色 LED 模块`
+- `a6bb8ef chore(task): 归档 04-29-tri-color-led`
+
+**验证**：
+- 已通过 `git diff --check`。
+- 已通过 `APP/*.h` 头文件守卫检查。
+- 已通过 UTF-8 无 BOM + LF 行尾扫描。
+- 已确认无 `led_r_Pin` / `led_g_Pin` / `led_b_Pin` 等 CubeMX LED 标签宏残留。
+- 用户已完成实机测试，功能正常：上电默认灭，1 秒白色亮/灭循环。
+- `cppcheck` 未运行：本机未安装 `cppcheck`。
+- Keil 命令行编译未运行：本机未找到 `UV4/UV4.exe`；用户已完成实际硬件测试。
+
+**任务状态**：
+- `04-29-tri-color-led` 已归档到 `.trellis/tasks/archive/2026-04/04-29-tri-color-led`。
+- 4G Phase 2 后续可基于 `rgb_led_set_enabled()` / `rgb_led_get_enabled()` 接入云端下发控制和上传状态字段。
+
+**未提交文件**：
+- `MDK-ARM/helmet.uvoptx`
+- `MDK-ARM/helmet/helmet.hex`
+
+这两个为 Keil 用户配置/构建产物，已刻意留在工作区未提交。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4b4fe05` | (see git log) |
+| `a6bb8ef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -36,8 +36,16 @@ void mq2_task(void)
     // 计算丙烷浓度（ppm）
     ppm = pow((RS / (R0 * 11.5428)), -1.5278);
 
-    // 打印调试信息
-    printf("V:%.2f RS:%.2f ppm:%.2f\r\n", voltage, RS, ppm);
+}
+
+/**
+ * @brief       获取最近一次 MQ2 烟雾浓度
+ * @param       无
+ * @retval      丙烷浓度 ppm
+ */
+float mq2_get_ppm(void)
+{
+    return ppm;
 }
 
 

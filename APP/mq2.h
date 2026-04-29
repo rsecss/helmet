@@ -9,6 +9,7 @@ extern "C" {
 
 void mq2_task(void);    // MQ2 传感器任务函数，基于 DMA 的方法
 void mq2_task1(void);   // MQ2 传感器任务函数，常规读取方法，可以注释掉
+float mq2_get_ppm(void); // 获取最近一次烟雾浓度
 
 #ifdef __cplusplus
 }

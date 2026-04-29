@@ -13,6 +13,9 @@ uint8_t DHT11_Init(void);
 
 // 读取 DHT11 数据函数，获取温度和湿度值
 uint8_t DHT11_Read_Data(uint8_t *temp, uint8_t *humi);
+uint8_t dht11_get_temperature(void);    // 获取最近一次温度
+uint8_t dht11_get_humidity(void);       // 获取最近一次湿度
+uint8_t dht11_is_valid(void);           // 最近一次读取是否有效
 
 // 微秒级延时函数，用于精确控制信号时序
 void Delay_us(uint16_t us);

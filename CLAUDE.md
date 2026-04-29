@@ -26,7 +26,9 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2) → ADC DMA 启动 → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2) → ADC DMA 启动 → rgb_led_init（三色 LED 默认白色） → m100pg_init（USART2 空闲 DMA 接收） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+
+M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须调用 `rgb_led_*` 公开接口，不得直接写 PB12/PB13/PB14。
 
 ### 任务调度器（`APP/scheduler.c`）
 
@@ -44,8 +46,10 @@ helmet.ioc      CubeMX 工程配置文件
 | ADC1    | PA0       | MQ2 烟雾传感器，DMA 循环采样 |
 | TIM1    | 内部时钟   | 微秒级延时，预分频 72-1（1MHz 计数频率） |
 | GPIO    | PA8       | DHT11 数据线，推挽输出高速模式 |
+| GPIO    | PB12/PB13/PB14 | 共阴三色 LED，低电平默认熄灭 |
 | I2C1    | PB6/PB7   | MPU6050 六轴传感器，Fast Mode 400kHz |
 | I2C2    | PB10/PB11 | MAX30102 心率血氧传感器，Fast Mode 400kHz |
+| USART2  | PA2/PA3   | M100PG 4G DTU 透传通信，115200-8N1，RX 使用 DMA 空闲中断 |
 | SWD     | PA13/PA14 | 调试接口                  |
 | HSE     | PD0/PD1   | 外部 8MHz 晶振            |
 
@@ -55,9 +59,12 @@ helmet.ioc      CubeMX 工程配置文件
 - 模块前缀：BSP 层函数以 `bsp_` 开头，调度器相关以 `scheduler_` 开头，新模块以模块名为前缀
 - 缩进：4 空格，大括号换行风格（函数体 `{` 另起一行，`if/for` 的 `{` 同行）
 - 注释风格：
-  - 函数注释使用 Doxygen 格式（`@brief` / `@param` / `@retval`），中文描述
-  - 行内注释用 `//`，写在代码右侧或上方，说明意图而非复述代码
+  - `.c` 函数实现处使用 Doxygen 格式（`@brief` / `@param` / `@retval`），简洁说明函数用法
+  - `.h` 函数声明末尾只写简短 `//` 注释，避免重复维护大段说明
+  - 函数内部只注释关键意图、硬件约束或非显而易见的分支
   - 结构体成员注释用 `//` 右侧对齐
+- 函数顺序：模块 `*_task()` 放在 `.c` 文件底部，`*_init()` 放在 `*_task()` 上方
+- 硬件映射：GPIO 端口、引脚、有效电平、默认状态等板级差异集中放在模块 `.c` 顶部，并使用模块前缀；`.h` 和调用方不暴露具体 GPIO 或 CubeMX 生成的 `main.h` 标签名
 - 头文件保护：使用 `#ifndef / #define / #endif` 守卫，命名 `MODULE_H`
 - 提交信息：遵循 [Conventional Commits](https://www.conventionalcommits.org/)，使用中文描述，如 `feat: 新增电池电量检测模块`
   - 可用前缀：`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `chore:` / `ci:`
@@ -84,5 +91,6 @@ helmet.ioc      CubeMX 工程配置文件
 
 - **CubeMX 生成的文件**：所有用户代码必须写在 `USER CODE BEGIN/END` 块内，否则重新生成时会被覆盖
 - **新增应用模块**：源文件放 `APP/`，头文件 include 到 `APP/bsp_system.h`，并在 Keil 工程中添加源文件和头文件路径
+- **模块移植边界**：调用方只能使用模块公开接口，不能直接操作其他模块的 GPIO 或私有状态；更换引脚、共阴/共阳、默认电平时只改模块顶部映射和 `.ioc`
 - **修改外设配置**：通过 `helmet.ioc` 在 CubeMX 中修改后重新生成，不要直接改 `Core/` 下的初始化代码
 - **HAL 库**：`Drivers/` 目录下的文件不应手动修改

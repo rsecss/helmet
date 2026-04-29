@@ -33,6 +33,8 @@ SmartHelm is STM32F103C8T6 embedded firmware for a smart helmet. It uses STM32Cu
 - `APP/` owns application modules; `Core/` is CubeMX-generated; `Drivers/` is vendor code.
 - Main loop runs `scheduler_run()`; sensor work is periodic polling, not RTOS.
 - Peripheral config source of truth is `helmet.ioc`; regenerate CubeMX code instead of hand-editing generated init code.
+- APP hardware mappings belong at the top of the owning module `.c` with module-prefixed macros; headers and callers must not depend on CubeMX `main.h` pin-label macros.
+- Cross-module control must use public module APIs, not direct GPIO writes or private state access.
 - I2C1 is for MPU6050; I2C2 is for MAX30102. Both run Fast Mode 400 kHz.
 - New modules must be registered in `APP/bsp_system.h`, `APP/scheduler.c`, `Core/Src/main.c`, and `MDK-ARM/helmet.uvprojx` when needed.
 - Quality gate requires cppcheck clean, `APP/*.h` include guards, UTF-8 without BOM, and LF line endings.

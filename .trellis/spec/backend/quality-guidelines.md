@@ -97,7 +97,26 @@ extern "C" {
 
 所有应用模块头文件必须在 `APP/bsp_system.h` 中 `#include`。模块内部只需 `#include "bsp_system.h"` 即可获得所有依赖。
 
-### 3. CubeMX 用户代码边界
+### 3. 模块移植边界
+
+应用模块必须保持高内聚、低耦合：硬件映射、有效电平、默认状态等板级差异集中在模块 `.c` 顶部，模块对外只暴露业务接口和状态读取接口。
+
+```c
+#define RGB_LED_R_GPIO_PORT    GPIOB
+#define RGB_LED_R_PIN          GPIO_PIN_12
+#define RGB_LED_ACTIVE_STATE   GPIO_PIN_SET
+
+void rgb_led_set_enabled(uint8_t enabled);  // 设置开关状态
+uint8_t rgb_led_get_enabled(void);          // 获取开关状态
+```
+
+**必须遵守**：
+- `.h` 文件不得暴露 `GPIOx`、`GPIO_PIN_x`、CubeMX `*_Pin` / `*_GPIO_Port` 标签名，除非该模块本身就是板级 BSP 抽象。
+- 业务函数不得散落使用 `GPIO_PIN_x` 或 `led_r_Pin` 这类生成宏；必须通过模块前缀宏或私有辅助函数访问硬件。
+- 更换引脚、共阴/共阳、默认电平时，只允许改模块顶部映射和 `.ioc` 外设配置，不应改调用方业务代码。
+- 跨模块控制只能调用被控模块的公开接口，例如 4G 下发解析调用 `rgb_led_set_enabled()`，不能直接写 LED GPIO。
+
+### 4. CubeMX 用户代码边界
 
 在 `Core/` 下添加用户代码**必须**包裹在 CubeMX 标记内：
 
@@ -108,9 +127,9 @@ scheduler_init();
 /* USER CODE END 2 */
 ```
 
-### 4. 函数注释（Doxygen 格式）
+### 5. 函数注释（Doxygen 格式）
 
-导出函数必须有中文 Doxygen 注释：
+函数实现处必须有中文 Doxygen 注释，说明用法而不是复述代码。头文件只保留函数声明末尾的简短 `//` 注释，避免声明和实现两处重复维护大段说明。
 
 ```c
 /**
@@ -119,9 +138,15 @@ scheduler_init();
  * @retval      无
  */
 void scheduler_run(void) { ... }
+
+void scheduler_run(void);  // 运行调度器
 ```
 
-### 5. 提交消息（Conventional Commits）
+**函数顺序**：应用模块 `.c` 中优先放私有状态和私有辅助函数，再放业务接口；`*_init()` 放在 `*_task()` 上方，`*_task()` 放在文件底部，便于快速定位调度入口。
+
+**函数内注释**：只解释关键意图、硬件约束或非显而易见的分支；禁止逐行复述代码。
+
+### 6. 提交消息（Conventional Commits）
 
 ```
 <type>[optional scope]: <中文描述>
@@ -145,12 +170,15 @@ void scheduler_run(void) { ... }
 - `chore: record journal`
 - `chore(task): archive 04-20-max30102`
 
-### 6. 代码风格
+### 7. 代码风格
 
 - **缩进**：4 空格，禁用 Tab
 - **大括号**：函数体 `{` 另起一行；`if/for/while` 的 `{` 同行
 - **命名**：函数/变量 `snake_case`，宏/常量 `UPPER_SNAKE_CASE`，类型 `_t` 后缀
 - **模块前缀**：所有导出符号以模块名前缀开头（详见 `directory-structure.md`）
+- **注释位置**：`.c` 文件使用 Doxygen 描述函数用法，`.h` 文件函数声明末尾只写简短 `//` 注释
+- **任务函数位置**：模块 `*_task()` 放在 `.c` 文件底部，`*_init()` 紧邻其上方
+- **硬件映射内聚**：模块使用的 GPIO 端口、引脚、有效电平、默认状态等预处理宏必须集中放在模块 `.c` 顶部，并使用模块前缀（如 `RGB_LED_R_PIN`）。模块头文件和调用方不得依赖 CubeMX 生成的 `main.h` 标签名（如 `led_r_Pin`）；可移植模块优先在模块顶部直接声明 `GPIOx` / `GPIO_PIN_x` 映射。
 
 ---
 
@@ -252,6 +280,10 @@ PR 作者与审阅者按以下清单逐项确认：
 - [ ] 函数/变量命名遵循 `snake_case` + 模块前缀
 - [ ] 宏/常量 `UPPER_SNAKE_CASE`
 - [ ] 导出函数含 Doxygen `@brief`/`@param`/`@retval` 中文注释
+- [ ] `.h` 函数声明只保留末尾短注释，`.c` 实现处保留 Doxygen 说明
+- [ ] 模块 `*_task()` 位于 `.c` 文件底部，`*_init()` 位于 `*_task()` 上方
+- [ ] GPIO 端口/引脚/有效电平/默认状态集中在模块 `.c` 顶部，`.h` 和调用方不暴露具体 GPIO
+- [ ] 跨模块访问只通过公开接口，调用方不直接操作其他模块的 GPIO 或私有状态
 - [ ] 4 空格缩进、大括号风格符合约定
 
 ### 外设与中断
@@ -284,3 +316,10 @@ PR 作者与审阅者按以下清单逐项确认：
 - [ ] `README.md` 在外设/模块变动时同步更新
 - [ ] `CLAUDE.md` 在架构/约定变动时同步更新
 - [ ] `dev_log.md` 本地记录变更（不入库）
+
+### 提交边界
+- [ ] `git diff --cached --name-status` 只包含本次功能需要的源码、配置和文档
+- [ ] 未提交 `MDK-ARM/helmet/*.o`、`*.d`、`*.crf`、`*.axf`、`*.map`、`helmet.hex`、`helmet.uvoptx`
+- [ ] 阶段性任务只记录已完成部分；上传封包/下发解析未完成时，不归档整个 4G 任务
+- [ ] 发版必须基于已合并到 `main` 的提交打 tag；未提交工作区内容不会进入 Release
+- [ ] 需要撤销提交但保留文件继续调试时，用 `git reset --mixed <commit>`；只在明确要丢弃已跟踪改动时才用 `git reset --hard <commit>`

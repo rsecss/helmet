@@ -32,11 +32,14 @@ static void DHT11_IO_OUT(void)
 void Delay_us(uint16_t us)
 {
     uint16_t differ = 0xFFFF - us - 5;
+    uint32_t timeout = ((uint32_t)us * 20U) + 1000U;
+
     __HAL_TIM_SET_COUNTER(&htim1, differ);
     HAL_TIM_Base_Start(&htim1);
-    while (differ < 0xFFFF - 5)
+    while ((differ < 0xFFFF - 5) && (timeout > 0U))
     {
         differ = __HAL_TIM_GET_COUNTER(&htim1);
+        timeout--;
     }
     HAL_TIM_Base_Stop(&htim1);
 }
@@ -167,13 +170,43 @@ uint8_t DHT11_Init(void)
 }
 
 /**
- * @brief   DHT11 调度器任务，周期读取并打印温湿度
+ * @brief   DHT11 调度器任务，周期读取并缓存温湿度
  */
-static uint8_t humi;
-static uint8_t temp;
+static uint8_t dht11_humi;
+static uint8_t dht11_temp;
+static uint8_t dht11_valid;
+
+/**
+ * @brief       获取最近一次 DHT11 温度
+ * @param       无
+ * @retval      温度，读取无效时保持最近缓存值
+ */
+uint8_t dht11_get_temperature(void)
+{
+    return dht11_temp;
+}
+
+/**
+ * @brief       获取最近一次 DHT11 湿度
+ * @param       无
+ * @retval      湿度，读取无效时保持最近缓存值
+ */
+uint8_t dht11_get_humidity(void)
+{
+    return dht11_humi;
+}
+
+/**
+ * @brief       判断最近一次 DHT11 读取是否有效
+ * @param       无
+ * @retval      1 有效，0 无效
+ */
+uint8_t dht11_is_valid(void)
+{
+    return dht11_valid;
+}
 
 void dht11_task(void)
 {
-    DHT11_Read_Data(&temp, &humi);
-    printf("temp:%d,humi:%d\r\n", temp, humi);
+    dht11_valid = (DHT11_Read_Data(&dht11_temp, &dht11_humi) == 0U) ? 1U : 0U;
 }
