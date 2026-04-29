@@ -4,6 +4,8 @@
 
 extern I2C_HandleTypeDef hi2c1;
 
+#define MPU6050_I2C_TIMEOUT_MS 10U
+
 /* 姿态数据 */
 float pitch, roll, yaw;
 
@@ -17,6 +19,8 @@ uint16_t GVM;
 
 /* 跌倒标志 */
 bool fall_flag = 0;
+
+static uint8_t mpu6050_ready = 0;
 
 /* q30 格式转 float 的除数 */
 #define Q30 1073741824.0f
@@ -66,6 +70,22 @@ static unsigned short inv_orientation_matrix_to_scalar(const signed char *mtx)
     return scalar;
 }
 
+static void mpu6050_clear_result(void)
+{
+    pitch = 0.0f;
+    roll = 0.0f;
+    yaw = 0.0f;
+    aacx = 0;
+    aacy = 0;
+    aacz = 0;
+    gyrox = 0;
+    gyroy = 0;
+    gyroz = 0;
+    AVM = 0;
+    GVM = 0;
+    fall_flag = 0;
+}
+
 /**
  * @brief  执行自检并将偏置写入 DMP
  */
@@ -100,6 +120,9 @@ void mpu6050_init(void)
 {
     struct int_param_s int_param;
 
+    mpu6050_ready = 0;
+    mpu6050_clear_result();
+
     if (mpu_init(&int_param) != 0)
         return;
     if (mpu_set_sensors(INV_XYZ_GYRO | INV_XYZ_ACCEL))
@@ -121,7 +144,10 @@ void mpu6050_init(void)
 
     run_self_test(); // 自检（失败不阻塞，仅影响校准精度）
 
-    mpu_set_dmp_state(1);
+    if (mpu_set_dmp_state(1))
+        return;
+
+    mpu6050_ready = 1;
 }
 
 /**
@@ -160,7 +186,7 @@ uint8_t mpu6050_get_gyroscope(short *gx, short *gy, short *gz)
 {
     uint8_t buf[6];
     if (HAL_I2C_Mem_Read(&hi2c1, (MPU6050_ADDR << 1), MPU6050_GYRO_XOUTH_REG,
-                         I2C_MEMADD_SIZE_8BIT, buf, 6, HAL_MAX_DELAY) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, buf, 6, MPU6050_I2C_TIMEOUT_MS) != HAL_OK)
         return 1;
     *gx = (buf[0] << 8) | buf[1];
     *gy = (buf[2] << 8) | buf[3];
@@ -175,7 +201,7 @@ uint8_t mpu6050_get_accelerometer(short *ax, short *ay, short *az)
 {
     uint8_t buf[6];
     if (HAL_I2C_Mem_Read(&hi2c1, (MPU6050_ADDR << 1), MPU6050_ACCEL_XOUTH_REG,
-                         I2C_MEMADD_SIZE_8BIT, buf, 6, HAL_MAX_DELAY) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, buf, 6, MPU6050_I2C_TIMEOUT_MS) != HAL_OK)
         return 1;
     *ax = (buf[0] << 8) | buf[1];
     *ay = (buf[2] << 8) | buf[3];
@@ -188,14 +214,25 @@ uint8_t mpu6050_get_accelerometer(short *ax, short *ay, short *az)
  */
 void mpu6050_task(void)
 {
-    mpu6050_dmp_get_data(&pitch, &roll, &yaw);
-    mpu6050_get_accelerometer(&aacx, &aacy, &aacz);
-    mpu6050_get_gyroscope(&gyrox, &gyroy, &gyroz);
+    if (!mpu6050_ready)
+        return;
+
+    if (mpu6050_dmp_get_data(&pitch, &roll, &yaw))
+        return;
+    if (mpu6050_get_accelerometer(&aacx, &aacy, &aacz)) {
+        mpu6050_ready = 0;
+        mpu6050_clear_result();
+        return;
+    }
+    if (mpu6050_get_gyroscope(&gyrox, &gyroy, &gyroz)) {
+        mpu6050_ready = 0;
+        mpu6050_clear_result();
+        return;
+    }
 
     AVM = sqrt(pow(aacx, 2) + pow(aacy, 2) + pow(aacz, 2));
     GVM = sqrt(pow(gyrox, 2) + pow(gyroy, 2) + pow(gyroz, 2));
 
     fall_flag = ((fabs(pitch) > 60) | (fabs(roll) > 60));
 
-    printf("pitch:%0.1f   roll:%0.1f   yaw:%0.1f\r\n", pitch, roll, yaw);
 }

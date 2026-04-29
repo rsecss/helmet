@@ -9,11 +9,14 @@
 
 extern I2C_HandleTypeDef hi2c2;
 
+#define MAX30102_I2C_TIMEOUT_MS 10U
+
 /* 对外数据 */
 int32_t heart_rate = 0;
 int32_t spo2       = 0;
 uint8_t hr_valid   = 0;
 uint8_t spo2_valid = 0;
+static uint8_t max30102_ready = 0;
 
 /* 采样环形缓冲（Red / IR 各 4 秒 @ 100Hz）
  * buf_head 指向下一个写入位置；buf_head 也等价于"最早样本索引" */
@@ -45,7 +48,7 @@ static const uint8_t uch_spo2_table[184] = {
 static uint8_t max30102_write_reg(uint8_t reg, uint8_t val)
 {
     if (HAL_I2C_Mem_Write(&hi2c2, (MAX30102_ADDR << 1), reg,
-                          I2C_MEMADD_SIZE_8BIT, &val, 1, HAL_MAX_DELAY) != HAL_OK)
+                          I2C_MEMADD_SIZE_8BIT, &val, 1, MAX30102_I2C_TIMEOUT_MS) != HAL_OK)
         return 1;
     return 0;
 }
@@ -53,7 +56,7 @@ static uint8_t max30102_write_reg(uint8_t reg, uint8_t val)
 static uint8_t max30102_read_reg(uint8_t reg, uint8_t *val)
 {
     if (HAL_I2C_Mem_Read(&hi2c2, (MAX30102_ADDR << 1), reg,
-                         I2C_MEMADD_SIZE_8BIT, val, 1, HAL_MAX_DELAY) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, val, 1, MAX30102_I2C_TIMEOUT_MS) != HAL_OK)
         return 1;
     return 0;
 }
@@ -61,7 +64,7 @@ static uint8_t max30102_read_reg(uint8_t reg, uint8_t *val)
 static uint8_t max30102_read_fifo_burst(uint8_t *buf, uint16_t len)
 {
     if (HAL_I2C_Mem_Read(&hi2c2, (MAX30102_ADDR << 1), MAX30102_REG_FIFO_DATA,
-                         I2C_MEMADD_SIZE_8BIT, buf, len, HAL_MAX_DELAY) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, buf, len, MAX30102_I2C_TIMEOUT_MS) != HAL_OK)
         return 1;
     return 0;
 }
@@ -141,6 +144,12 @@ static void max30102_clear_result(void)
     spo2_miss_windows = 0;
     sample_counter = 0;
     pba_reset();
+}
+
+static void max30102_mark_unready(void)
+{
+    max30102_ready = 0;
+    max30102_clear_result();
 }
 
 static int32_t smooth_value(int32_t old_val, int32_t new_val, int32_t weight)
@@ -333,6 +342,9 @@ uint8_t max30102_init(void)
 {
     uint8_t part_id = 0;
 
+    max30102_ready = 0;
+    max30102_clear_result();
+
     /* 软复位（MODE.RESET=1）*/
     if (max30102_write_reg(MAX30102_REG_MODE_CONFIG, 0x40)) return 1;
     HAL_Delay(50);
@@ -341,31 +353,32 @@ uint8_t max30102_init(void)
     if (part_id != MAX30102_PART_ID_VALUE) return 1;
 
     /* 清 FIFO 指针 */
-    max30102_write_reg(MAX30102_REG_FIFO_WR_PTR, 0x00);
-    max30102_write_reg(MAX30102_REG_OVF_COUNTER, 0x00);
-    max30102_write_reg(MAX30102_REG_FIFO_RD_PTR, 0x00);
+    if (max30102_write_reg(MAX30102_REG_FIFO_WR_PTR, 0x00)) return 1;
+    if (max30102_write_reg(MAX30102_REG_OVF_COUNTER, 0x00)) return 1;
+    if (max30102_write_reg(MAX30102_REG_FIFO_RD_PTR, 0x00)) return 1;
 
     /* FIFO_CONFIG: SMP_AVE=000, FIFO_ROLLOVER_EN=1, FIFO_A_FULL=0x0F */
-    max30102_write_reg(MAX30102_REG_FIFO_CONFIG, 0x1F);
+    if (max30102_write_reg(MAX30102_REG_FIFO_CONFIG, 0x1F)) return 1;
 
     /* MODE: SpO2 模式（Red + IR） */
-    max30102_write_reg(MAX30102_REG_MODE_CONFIG, 0x03);
+    if (max30102_write_reg(MAX30102_REG_MODE_CONFIG, 0x03)) return 1;
 
     /* SPO2_CONFIG: ADC_RGE=01(4096nA), SR=011(100Hz), LED_PW=11(411us/18-bit) */
-    max30102_write_reg(MAX30102_REG_SPO2_CONFIG, 0x27);
+    if (max30102_write_reg(MAX30102_REG_SPO2_CONFIG, 0x27)) return 1;
 
     /* LED 电流约 7mA（0x24 × 0.2mA）*/
-    max30102_write_reg(MAX30102_REG_LED1_PA, 0x24);
-    max30102_write_reg(MAX30102_REG_LED2_PA, 0x24);
+    if (max30102_write_reg(MAX30102_REG_LED1_PA, 0x24)) return 1;
+    if (max30102_write_reg(MAX30102_REG_LED2_PA, 0x24)) return 1;
 
     /* 关闭所有中断（纯轮询）*/
-    max30102_write_reg(MAX30102_REG_INT_ENABLE_1, 0x00);
-    max30102_write_reg(MAX30102_REG_INT_ENABLE_2, 0x00);
+    if (max30102_write_reg(MAX30102_REG_INT_ENABLE_1, 0x00)) return 1;
+    if (max30102_write_reg(MAX30102_REG_INT_ENABLE_2, 0x00)) return 1;
 
     buf_head           = 0;
     samples_filled     = 0;
     samples_since_calc = 0;
     max30102_clear_result();
+    max30102_ready = 1;
     return 0;
 }
 
@@ -377,8 +390,18 @@ uint8_t max30102_init(void)
 void max30102_task(void)
 {
     uint8_t wr = 0, rd = 0;
-    if (max30102_read_reg(MAX30102_REG_FIFO_WR_PTR, &wr)) return;
-    if (max30102_read_reg(MAX30102_REG_FIFO_RD_PTR, &rd)) return;
+
+    if (!max30102_ready)
+        return;
+
+    if (max30102_read_reg(MAX30102_REG_FIFO_WR_PTR, &wr)) {
+        max30102_mark_unready();
+        return;
+    }
+    if (max30102_read_reg(MAX30102_REG_FIFO_RD_PTR, &rd)) {
+        max30102_mark_unready();
+        return;
+    }
 
     uint8_t samples = (wr - rd) & 0x1F;                 // FIFO 深度 32
     if (samples == 0) return;
@@ -387,7 +410,10 @@ void max30102_task(void)
     if (samples > 32) samples = 32;
     uint16_t len = (uint16_t)samples * 6;
 
-    if (max30102_read_fifo_burst(raw, len)) return;
+    if (max30102_read_fifo_burst(raw, len)) {
+        max30102_mark_unready();
+        return;
+    }
 
     for (uint8_t i = 0; i < samples; i++) {
         uint32_t red = ((uint32_t)raw[i * 6 + 0] << 16) |
@@ -418,7 +444,6 @@ void max30102_task(void)
 
     if (ir_mean < MAX30102_FINGER_THRESHOLD) {
         max30102_clear_result();
-        printf("max30102: no finger\r\n");
         return;
     }
 
@@ -448,7 +473,4 @@ void max30102_task(void)
         if (miss_windows >= MAX30102_HOLD_MISSES)
             max30102_clear_result();
     }
-
-    printf("hr:%d bpm  spo2:%d%%  (hr_ok=%d spo2_ok=%d)\r\n",
-           (int)heart_rate, (int)spo2, (int)hr_valid, (int)spo2_valid);
 }
