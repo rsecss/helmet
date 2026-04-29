@@ -1,0 +1,4 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": "CLAUDE.md", "reason": "验证代码风格/注释/命名是否符合项目约定"}
+{"file": "APP/mpu6050.c", "reason": "对照参考模板检查驱动结构一致性"}

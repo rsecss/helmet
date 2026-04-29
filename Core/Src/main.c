@@ -96,10 +96,12 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_I2C1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dma_buff[0], 30); // 启动 ADC1 的 DMA 模式，将采集到的 30 个数据存储到 dma_buff 数组中
   DHT11_Init();       // DHT11 温湿度传感器初始化
   mpu6050_init();     // MPU6050 姿态传感器初始化（含 DMP）
+  max30102_init();    // MAX30102 心率血氧传感器初始化
   scheduler_init();   // 初始化调度器
   /* USER CODE END 2 */
 

@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "CLAUDE.md", "reason": "项目代码风格与架构约定（外设表、命名、头文件规则）"}
+{"file": "APP/mpu6050.c", "reason": "I2C 模块驱动模板（HAL_I2C_Mem_Read 用法、task 函数风格）"}
+{"file": "APP/mpu6050.h", "reason": "头文件守卫/extern 全局变量的写法模板"}
+{"file": "APP/bsp_system.h", "reason": "应用模块登记位置"}
+{"file": "APP/scheduler.c", "reason": "调度器任务注册方式"}

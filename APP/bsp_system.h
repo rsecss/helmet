@@ -24,6 +24,7 @@ extern "C" {
 #include "mq2.h"                        // MQ2 烟雾传感器模块
 #include "dht11.h"                      // DHT11 温湿度传感器模块
 #include "mpu6050.h"                    // MPU6050 六轴传感器模块
+#include "max30102.h"                   // MAX30102 心率血氧传感器模块
 #include "scheduler.h"
 
 /* MPU6050 相关库 */

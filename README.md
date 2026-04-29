@@ -45,6 +45,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | TIM1 | 内部时钟 | 微秒级延时（预分频 72-1，1MHz 计数） |
 | GPIO | PA8 | DHT11 温湿度传感器数据线（推挽输出） |
 | I2C1 | PB6 (SCL) / PB7 (SDA) | MPU6050 六轴传感器通信（Fast Mode 400kHz） |
+| I2C2 | PB10 (SCL) / PB11 (SDA) | MAX30102 心率血氧传感器通信（Fast Mode 400kHz） |
 | SWD | PA13 / PA14 | 程序下载与调试 |
 
 ## 功能模块
@@ -55,6 +56,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | MQ2 烟雾传感器 | `APP/mq2.c` | ADC+DMA 采集，计算气体浓度（ppm），100ms 周期 |
 | DHT11 温湿度传感器 | `APP/dht11.c` | 单总线时序通信，读取温度和湿度，1000ms 周期 |
 | MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒检测，10ms 周期 |
+| MAX30102 心率血氧传感器 | `APP/max30102.c` | I2C2 通信，FIFO 轮询读取 Red/IR，PBA 心跳检测 + AC/DC 比值算 SpO2，50ms 周期 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构

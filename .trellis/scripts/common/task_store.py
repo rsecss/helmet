@@ -328,7 +328,7 @@ def _auto_commit_archive(task_name: str, repo_root: Path) -> None:
         print("[OK] No task changes to commit.", file=sys.stderr)
         return
 
-    commit_msg = f"chore(task): archive {task_name}"
+    commit_msg = f"chore(task): 归档 {task_name}"
     rc, _, err = run_git(["commit", "-m", commit_msg], cwd=repo_root)
     if rc == 0:
         print(f"[OK] Auto-committed: {commit_msg}", file=sys.stderr)

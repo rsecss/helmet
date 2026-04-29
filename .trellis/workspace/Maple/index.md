@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
-- **Last Active**: 2026-04-19
+- **Total Sessions**: 7
+- **Last Active**: 2026-04-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~280 | Active |
+| `journal-1.md` | ~314 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-04-28 | 完成 MAX30102 心率血氧模块 | `3b0f8f8`, `51a993f` | `dev` |
 | 1 | 2026-03-05 | 项目初始化，搭建项目框架 | `86a9534` | `main` |
 | 2 | 2026-03-06 | 新增 MQ2 烟雾传感器模块 | `c77edde` | `main` |
 | 3 | 2026-03-06 | 新增 DHT11 温湿度传感器模块 | `7ba2525`, `c7825ba`, `c38070c` | `main` |
