@@ -26,7 +26,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2) → ADC DMA 启动 → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2) → ADC DMA 启动 → m100pg_init（USART2 空闲 DMA 接收） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
 ### 任务调度器（`APP/scheduler.c`）
 
@@ -46,6 +46,7 @@ helmet.ioc      CubeMX 工程配置文件
 | GPIO    | PA8       | DHT11 数据线，推挽输出高速模式 |
 | I2C1    | PB6/PB7   | MPU6050 六轴传感器，Fast Mode 400kHz |
 | I2C2    | PB10/PB11 | MAX30102 心率血氧传感器，Fast Mode 400kHz |
+| USART2  | PA2/PA3   | M100PG 4G DTU 透传通信，115200-8N1，RX 使用 DMA 空闲中断 |
 | SWD     | PA13/PA14 | 调试接口                  |
 | HSE     | PD0/PD1   | 外部 8MHz 晶振            |
 

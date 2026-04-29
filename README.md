@@ -46,6 +46,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | GPIO | PA8 | DHT11 温湿度传感器数据线（推挽输出） |
 | I2C1 | PB6 (SCL) / PB7 (SDA) | MPU6050 六轴传感器通信（Fast Mode 400kHz） |
 | I2C2 | PB10 (SCL) / PB11 (SDA) | MAX30102 心率血氧传感器通信（Fast Mode 400kHz） |
+| USART2 | PA2 (TX) / PA3 (RX) | M100PG 4G DTU 透传通信，115200-8N1，RX 使用 DMA 空闲中断 |
 | SWD | PA13 / PA14 | 程序下载与调试 |
 
 ## 功能模块
@@ -57,6 +58,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | DHT11 温湿度传感器 | `APP/dht11.c` | 单总线时序通信，读取温度和湿度，1000ms 周期 |
 | MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒检测，10ms 周期 |
 | MAX30102 心率血氧传感器 | `APP/max30102.c` | I2C2 通信，FIFO 轮询读取 Red/IR，PBA 心跳检测 + AC/DC 比值算 SpO2，50ms 周期 |
+| M100PG 4G DTU | `APP/m100pg.c` | USART2 DMA 空闲接收，缓存云端下发并转发到 USART1 调试口，10ms 周期 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构
