@@ -59,8 +59,8 @@ helmet.ioc      STM32CubeMX 工程配置
 | DHT11 温湿度传感器 | `APP/dht11.c` | 单总线时序通信，读取温度和湿度，1000ms 周期 |
 | MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒检测，10ms 周期 |
 | MAX30102 心率血氧传感器 | `APP/max30102.c` | I2C2 通信，FIFO 轮询读取 Red/IR，PBA 心跳检测 + AC/DC 比值算 SpO2，50ms 周期 |
-| M100PG 4G DTU | `APP/m100pg.c` | USART2 DMA 空闲接收，缓存云端下发并转发到 USART1 调试口，10ms 周期 |
-| 三色 LED | `APP/rgb_led.c` | PB12/PB13/PB14 控制共阴 RGB LED，当前 1000ms 周期白色闪烁测试 |
+| M100PG 4G DTU | `APP/m100pg.c` / `APP/m100pg_protocol.c` | USART2 DMA 空闲接收，1000ms 上传传感器帧，解析 `LED_ON/OFF/WHITE/RED/GREEN` 并可转发到 USART1 调试口 |
+| 三色 LED | `APP/rgb_led.c` | PB12/PB13/PB14 控制共阴 RGB LED，默认白色，供云端 LED 颜色控制 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构

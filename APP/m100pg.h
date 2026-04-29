@@ -36,6 +36,12 @@ void m100pg_set_debug_forward(uint8_t enabled);
 uint8_t m100pg_send_bytes(const uint8_t *data, uint16_t len);
 
 /**
+ * @brief       上传最近一次传感器数据快照
+ * @retval      0 成功，非 0 失败
+ */
+uint8_t m100pg_upload_sensor_data(void);
+
+/**
  * @brief       USART 空闲接收回调入口，仅处理 USART2
  * @param       huart UART 句柄
  * @param       size 本次 DMA 接收长度

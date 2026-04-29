@@ -1089,6 +1089,16 @@
               <FilePath>..\APP\m100pg.h</FilePath>
             </File>
             <File>
+              <FileName>m100pg_protocol.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\m100pg_protocol.c</FilePath>
+            </File>
+            <File>
+              <FileName>m100pg_protocol.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\m100pg_protocol.h</FilePath>
+            </File>
+            <File>
               <FileName>rgb_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\rgb_led.c</FilePath>

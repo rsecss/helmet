@@ -99,13 +99,21 @@ int main(void)
   MX_I2C2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  uint8_t init_result;
+
+  printf("[BOOT] smarthelm app start\r\n");
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dma_buff[0], 30); // 启动 ADC1 的 DMA 模式，将采集到的 30 个数据存储到 dma_buff 数组中
-  rgb_led_init();    // 三色 LED 初始化，默认关闭
-  m100pg_init();      // M100PG 4G 模块串口接收转发初始化
-  DHT11_Init();       // DHT11 温湿度传感器初始化
+  rgb_led_init();    // 三色 LED 初始化，默认白色
+  printf("[RGB] init white\r\n");
+  init_result = DHT11_Init();       // DHT11 温湿度传感器初始化
+  printf("[DHT11] init=%u\r\n", init_result);
   mpu6050_init();     // MPU6050 姿态传感器初始化（含 DMP）
-  max30102_init();    // MAX30102 心率血氧传感器初始化
+  printf("[MPU6050] init done\r\n");
+  init_result = max30102_init();    // MAX30102 心率血氧传感器初始化
+  printf("[MAX30102] init=%u\r\n", init_result);
+  m100pg_init();      // M100PG 4G 模块串口接收转发初始化
   scheduler_init();   // 初始化调度器
+  printf("[BOOT] scheduler ready\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
