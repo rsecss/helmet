@@ -173,6 +173,33 @@ HAL_I2C_Mem_Read(&hi2cX, addr, reg, I2C_MEMADD_SIZE_8BIT,
 
 **Bad**：传感器任务中使用 `HAL_MAX_DELAY` 或每 10ms 打印姿态/心率，导致 `m100pg_task()` 无法及时消费 USART2 ring buffer。
 
+### 5.1 Case Study: MPU6050 / MAX30102 阻塞 4G 下发
+
+**Symptom**:
+- 上电日志可到 `[BOOT] scheduler ready`，云端能看到周期上行。
+- 云端下发 `LED_OFF` / `LED_GREEN` 时，USART1 无 `[4G RX]`，LED 无动作。
+- 只保留 `m100pg_task` 后，下发立即恢复；`mq2_task`、`dht11_task` 与 4G 同跑正常。
+- 单独恢复 `mpu6050_task` 或 `max30102_task`，4G 下发再次无响应。
+
+**Root Cause**:
+- `APP/mpu6050_inv_mpu.c` 的 `i2c_read/i2c_write` 使用 `0xFFFFFF` 超长超时。
+- `APP/mpu6050.c`、`APP/max30102.c` 在调度器任务路径使用 `HAL_MAX_DELAY`。
+- `APP/max30102.c` 周期任务内打印 `no finger` / HR / SpO2，USART1 为阻塞单字节发送，会干扰 4G 调试观察。
+- 协作调度器没有抢占能力；任一传感器任务卡住时，`m100pg_task()` 不再消费 USART2 ring buffer。
+
+**Fix Pattern**:
+- 每个 I2C 传感器定义模块私有超时，例如 `MPU6050_I2C_TIMEOUT_MS`、`MAX30102_I2C_TIMEOUT_MS`。
+- 初始化开始先 `ready=0` 并清零公开结果；所有初始化步骤成功后才 `ready=1`。
+- 任务入口先判断 `ready`；任务内 I2C 失败时清零结果并关闭 `ready`。
+- 高频传感器任务不得打印周期数据；调试日志放到低频状态变化或专用调试开关后面。
+- `APP/scheduler.c` 中 `m100pg_task` 排在可能访问慢外设的传感器任务之前。
+
+**Prevention Checklist**:
+- 恢复全量任务前，逐个组合验证：`m100pg_task` + 单个传感器任务。
+- 每恢复一个任务，至少观察一次云端下发是否出现 `[4G RX]`。
+- 修改 I2C 传感器任务后，必须搜索该模块和配套 vendor driver：`HAL_MAX_DELAY|0xFFFFFF`。
+- 提交前搜索高频任务日志：`rg "printf" APP/<sensor>.c`。
+
 ### 6. Tests Required
 
 - `rg "HAL_MAX_DELAY|0xFFFFFF" APP/<sensor>.c APP/<vendor_driver>.c` 不应命中该传感器链路。
