@@ -127,6 +127,90 @@ void mpu6050_task(void)
 
 ---
 
+## Scenario: Cooperative Scheduler Sensor Task Nonblocking
+
+### 1. Scope / Trigger
+
+适用于所有由 `APP/scheduler.c` 周期调用的传感器任务，尤其是 I2C 轮询设备（如 MPU6050、MAX30102）。当 4G 下发无 `[4G RX]` 且只保留 `m100pg_task` 后恢复正常时，必须优先检查传感器任务是否阻塞主循环。
+
+### 2. Signatures
+
+```c
+uint8_t sensor_init(void);  /* 返回 0 表示传感器可用，非 0 表示降级 */
+void sensor_task(void);     /* 调度器周期任务，不返回状态给调度器 */
+```
+
+HAL 阻塞外设调用必须使用模块私有有限超时宏：
+
+```c
+#define SENSOR_I2C_TIMEOUT_MS 10U
+HAL_I2C_Mem_Read(&hi2cX, addr, reg, I2C_MEMADD_SIZE_8BIT,
+                 buf, len, SENSOR_I2C_TIMEOUT_MS);
+```
+
+### 3. Contracts
+
+- 调度器任务不得使用 `HAL_MAX_DELAY`、`0xFFFFFF` 或无退出条件的轮询等待。
+- 初始化失败必须保持模块 `ready=0`，任务入口先判断 `ready`，不可继续访问外设。
+- 任务内 I2C 读写失败必须直接返回；会导致连续阻塞的硬件错误应清零结果并关闭 `ready`。
+- 高频任务不得直接 `printf` 原始数据；USART1 调试口是阻塞单字节发送，传感器日志会影响 4G 调试观察。
+- 上传模块只读取传感器缓存快照；不得为了上传等待传感器刷新。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| 全量任务下无 `[4G RX]`，只保留 4G 正常 | 传感器任务阻塞 | 逐个恢复传感器任务，观察 `[4G] task alive` 和云端下发 |
+| 恢复某 I2C 传感器后 4G 下发消失 | I2C 超时参数 | 搜索该模块是否有 `HAL_MAX_DELAY`、`0xFFFFFF`、长轮询 |
+| 传感器未接或 ACK 失败后主循环卡死 | 初始化降级 | `*_init()` 失败后 `*_task()` 是否 `ready` 门控返回 |
+| USART1 被传感器日志刷屏 | 高频打印 | `*_task()` 中是否有周期性 `printf` |
+
+### 5. Good/Base/Bad Cases
+
+**Good**：I2C 读写使用 10ms 级有限超时；初始化成功才置 `ready=1`；任务失败后直接返回或降级。
+
+**Base**：任务本周期没有新 FIFO 数据时快速返回，不清除 4G 接收状态，不打印。
+
+**Bad**：传感器任务中使用 `HAL_MAX_DELAY` 或每 10ms 打印姿态/心率，导致 `m100pg_task()` 无法及时消费 USART2 ring buffer。
+
+### 6. Tests Required
+
+- `rg "HAL_MAX_DELAY|0xFFFFFF" APP/<sensor>.c APP/<vendor_driver>.c` 不应命中该传感器链路。
+- `rg "printf" APP/<sensor>.c` 检查高频任务没有周期性日志。
+- 实机逐个恢复任务：`m100pg_task` + 单个传感器运行至少 10 秒，USART1 仍能看到 `[4G] task alive`，云端下发能出现 `[4G RX]`。
+- 断开或拔掉目标 I2C 传感器后，系统允许该传感器数据为 0/invalid，但 4G 上传和下发不能停止。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+void sensor_task(void)
+{
+    HAL_I2C_Mem_Read(&hi2c1, addr, reg, I2C_MEMADD_SIZE_8BIT,
+                     buf, len, HAL_MAX_DELAY);
+    printf("raw=%u\r\n", raw);
+}
+```
+
+#### Correct
+
+```c
+void sensor_task(void)
+{
+    if (!sensor_ready)
+        return;
+    if (HAL_I2C_Mem_Read(&hi2c1, addr, reg, I2C_MEMADD_SIZE_8BIT,
+                         buf, len, SENSOR_I2C_TIMEOUT_MS) != HAL_OK) {
+        sensor_ready = 0;
+        sensor_clear_result();
+        return;
+    }
+}
+```
+
+---
+
 ## Scenario: M100PG USART2 DMA 透传调试
 
 ### 1. Scope / Trigger
@@ -181,11 +265,28 @@ USART1 PA9/PA10       -> USB-TTL 调试口
 | 现象 | 先查 | 必须验证 |
 |------|------|----------|
 | USART1 无 `[4G] usart2 rx dma ready` | 初始化顺序 | `MX_DMA_Init()`、`MX_USART2_UART_Init()` 在 `m100pg_init()` 之前 |
+| USART1 有 `[4G] usart2 rx dma ready` 和 `[BOOT] scheduler ready`，但无周期 `[4G TX]` | 调度器任务是否真正执行 | `m100pg_task()` 是否注册且排在可能阻塞的传感器任务之前；任务内周期心跳是否能输出 |
+| 只保留 `m100pg_task` 后云端下发正常，全量任务下无 `[4G RX]` | 其他调度器任务阻塞主循环 | 按 `m100pg_task` + 单个传感器任务逐个恢复，观察 `[4G] task alive` 和 `[4G RX]`；重点查 `HAL_MAX_DELAY`、长轮询、微秒延时死等 |
 | USART1 有 `[4G TX]` 或发送成功，但云端收不到 | 上行物理链路 | PA2->DTU RXD、共地、DTU WebSocket 已上线、波特率一致 |
-| 云端下发，USART1 无 `[4G RX]` | 下行物理链路 | DTU TXD->PA3、共地、`USART2_IRQHandler` 与 `DMA1_Channel6_IRQHandler` 已生成 |
+| 云端下发，USART1 无 `[4G RX]` | 下行物理链路，不要先改协议解析或 LED 逻辑 | 先用 PA2->PA3 自环证明 STM32 USART2 RX/DMA 正常，再验证 DTU TXD->PA3、共地、云端确实下发、DTU 处于透传输出状态 |
+| 自环有 `[4G RX]`，接 DTU 无 `[4G RX]` | DTU 下行链路 | DTU TXD 电平、TX/RX 是否交叉、云平台是否把命令发到设备下行、DTU 是否在线且未只开上行 |
+| 有 `[4G RX]` 但 LED 命令无动作 | 协议内容 | USART1 原文是否完整等于 `LED_OFF` / `LED_ON` 等命令；若输出 `downlink ignored`，先修云端 payload 格式 |
 | 只收到第一帧 | DMA 重启 | RxEvent 后必须重新调用 `HAL_UARTEx_ReceiveToIdle_DMA()` |
 | 数据偶发截断 | ring buffer 容量/消费周期 | 中断侧不阻塞，任务侧短周期消费，溢出需有可观测标志 |
 | DTU 单独接 USB-TTL 正常，接 STM32 不正常 | STM32 侧 RX/TX/GND | 用 PA2->PA3 自环验证 STM32 USART2 DMA，再接 DTU |
+
+### 4.1 Debug Gate Order
+
+M100PG 问题必须按证据门逐层推进，不能从现象直接跳到协议或 GPIO：
+
+1. **Boot gate**: USART1 看到 `[BOOT] ...` 和 `[4G] usart2 rx dma ready`，只证明初始化调用完成。
+2. **Task gate**: USART1 周期看到 `[4G TX]`，才证明 `m100pg_task()` 在主循环中运行。若没有，先查调度器任务顺序、前置任务阻塞、`HAL_GetTick()`。
+3. **STM32 RX gate**: 用 PA2->PA3 自环，发送固定字符串，必须看到 `[4G RX]` 和原文。通过后才说明 USART2 IRQ、DMA、RxEvent、ring buffer、任务消费链路正常。
+4. **DTU downlink gate**: 自环通过但接 DTU 无 `[4G RX]` 时，问题在 DTU TXD->PA3、共地、云端下发或 DTU 透传配置，不在 `m100pg_protocol` 或 LED GPIO。
+5. **Protocol gate**: 只有看到 `[4G RX]` 原文后，才检查 payload 是否完整匹配 `LED_ON` / `LED_OFF` / `LED_WHITE` / `LED_RED` / `LED_GREEN`。
+6. **Scheduler isolation gate**: `m100pg_task` 单独运行正常后，逐个恢复传感器任务。每恢复一个任务必须观察至少 10 秒 `[4G] task alive` 和一次云端下发，定位阻塞源后再改该任务。
+
+反例：没有 `[4G RX]` 时修改 `LED_OFF` 解析、LED 默认颜色、初始化顺序，都是表层修复；它们不能证明 USART2 下行链路已经把字节送进 MCU。
 
 ### 5. Good/Base/Bad Cases
 
@@ -218,9 +319,12 @@ UP,test=hello
 ### 6. Tests Required
 
 - 上电后 USART1 看到 `[4G] usart2 rx dma ready`。
+- 上电后 USART1 看到 `[BOOT] scheduler ready` 后，必须继续看到周期 `[4G TX]`；否则先修调度器或阻塞任务。
+- 若全量任务下无下发响应，先临时只保留 `m100pg_task`；确认正常后按 MQ2、DHT11、MPU6050、MAX30102 的顺序逐个恢复并记录结果。
 - 自环测试：PA2->PA3，发送固定字符串，USART1 必须收到同一字符串。
 - DTU 上行测试：串口助手触发发送 `UP,test=hello`，云端必须收到。
 - DTU 下行测试：云端下发文本，USART1 必须出现 `[4G RX]` 和原文。
+- LED 下发测试只能在 `[4G RX]` 已出现后执行；否则不得判断 `LED_OFF` 或 RGB GPIO 有问题。
 - 连续下发 5 次，`events` 递增，不能只收到第一帧。
 - 关闭 `debug_forward` 后，USART1 不输出，但上行发送和下行 ring buffer 消费不能被破坏。
 
