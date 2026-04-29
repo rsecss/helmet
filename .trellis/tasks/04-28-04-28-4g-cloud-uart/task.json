@@ -45,9 +45,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "04-29-tri-color-led"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
