@@ -284,3 +284,10 @@ PR 作者与审阅者按以下清单逐项确认：
 - [ ] `README.md` 在外设/模块变动时同步更新
 - [ ] `CLAUDE.md` 在架构/约定变动时同步更新
 - [ ] `dev_log.md` 本地记录变更（不入库）
+
+### 提交边界
+- [ ] `git diff --cached --name-status` 只包含本次功能需要的源码、配置和文档
+- [ ] 未提交 `MDK-ARM/helmet/*.o`、`*.d`、`*.crf`、`*.axf`、`*.map`、`helmet.hex`、`helmet.uvoptx`
+- [ ] 阶段性任务只记录已完成部分；上传封包/下发解析未完成时，不归档整个 4G 任务
+- [ ] 发版必须基于已合并到 `main` 的提交打 tag；未提交工作区内容不会进入 Release
+- [ ] 需要撤销提交但保留文件继续调试时，用 `git reset --mixed <commit>`；只在明确要丢弃已跟踪改动时才用 `git reset --hard <commit>`

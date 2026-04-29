@@ -124,3 +124,128 @@ void mpu6050_task(void)
 5. **`extern` 声明缺失 / 重复定义**：新模块的全局变量应在 `.h` 用 `extern`、在 `.c` 定义一次。忘记 `extern` 会链接错误；多处定义会"multiple definition"链接失败。
 
 6. **全局变量大小写与模块前缀不一致**：例如 `AVM`/`GVM`（历史遗留，全大写容易误认为宏）。新代码应使用 `mpu6050_avm` 这类带模块前缀的 snake_case 命名。
+
+---
+
+## Scenario: M100PG USART2 DMA 透传调试
+
+### 1. Scope / Trigger
+
+适用于 `APP/m100pg.c/.h` 这类 **DTU 透传模块**：云平台、4G DTU、STM32 USART2、USART1 调试口跨硬件链路联调。
+
+触发条件：
+- 新增或修改 USART2 / DMA / DTU 透传代码。
+- 云端能收到上行但 USART1 看不到下发，或 USART1 有发送日志但云端收不到。
+- 只有一个 USB 串口可观察，需要隔离 STM32 与 DTU 哪一侧异常。
+
+### 2. Signatures
+
+```c
+uint8_t m100pg_init(void);
+void m100pg_task(void);
+uint8_t m100pg_send_bytes(const uint8_t *data, uint16_t len);
+void m100pg_set_debug_forward(uint8_t enabled);
+void m100pg_rx_event_callback(UART_HandleTypeDef *huart, uint16_t size);
+```
+
+CubeMX / HAL 入口：
+
+```c
+MX_USART2_UART_Init();
+HAL_UARTEx_ReceiveToIdle_DMA(&huart2, m100pg_rx_dma_buffer,
+                             sizeof(m100pg_rx_dma_buffer));
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size);
+```
+
+硬件合同：
+
+```text
+STM32 PA2 (USART2_TX) -> DTU RXD
+STM32 PA3 (USART2_RX) <- DTU TXD
+STM32 GND             -> DTU GND
+USART1 PA9/PA10       -> USB-TTL 调试口
+```
+
+> **Warning**: DTU 与 STM32 必须共地。即使分在两块面包板，只要 UART 跨板连接，也必须把两侧 GND 接到同一参考地。
+
+### 3. Contracts
+
+- `USART2` 是联网数据通道，`USART1` 只做调试观察；协议逻辑不得依赖 USART1 永久在线。
+- `m100pg_init()` 必须先清 ring buffer，再启动 `HAL_UARTEx_ReceiveToIdle_DMA()`，并关闭 DMA half-transfer 中断。
+- `m100pg_rx_event_callback()` 只处理 `USART2`，中断路径只允许：停止 DMA、裁剪 `size`、写 ring buffer、记录计数、清 DMA 临时缓冲、重启 DMA。
+- `m100pg_task()` 才能打印、转发、解析；关闭 `debug_forward` 后，上行发送和下行接收仍应工作。
+- `m100pg_send_bytes()` 只能证明 STM32 已把字节送到 USART2 TX，不等价于云端已收到。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| USART1 无 `[4G] usart2 rx dma ready` | 初始化顺序 | `MX_DMA_Init()`、`MX_USART2_UART_Init()` 在 `m100pg_init()` 之前 |
+| USART1 有 `[4G TX]` 或发送成功，但云端收不到 | 上行物理链路 | PA2->DTU RXD、共地、DTU WebSocket 已上线、波特率一致 |
+| 云端下发，USART1 无 `[4G RX]` | 下行物理链路 | DTU TXD->PA3、共地、`USART2_IRQHandler` 与 `DMA1_Channel6_IRQHandler` 已生成 |
+| 只收到第一帧 | DMA 重启 | RxEvent 后必须重新调用 `HAL_UARTEx_ReceiveToIdle_DMA()` |
+| 数据偶发截断 | ring buffer 容量/消费周期 | 中断侧不阻塞，任务侧短周期消费，溢出需有可观测标志 |
+| DTU 单独接 USB-TTL 正常，接 STM32 不正常 | STM32 侧 RX/TX/GND | 用 PA2->PA3 自环验证 STM32 USART2 DMA，再接 DTU |
+
+### 5. Good/Base/Bad Cases
+
+**Good：完整 DTU 链路**
+
+```text
+串口助手(USART1) -> 观察调试输出
+STM32 USART2     -> DTU 串口
+云平台           -> 收 UP,test=hello；下发 DOWN,hello
+期望 USART1      -> [4G RX] len=... 后跟 DOWN,hello
+```
+
+**Base：STM32 自环隔离**
+
+```text
+PA2(USART2_TX) -> PA3(USART2_RX)
+m100pg_send_bytes("4G_SELFTEST\r\n", 13)
+期望 USART1 -> [4G RX] len=13 ... 4G_SELFTEST
+```
+
+**Bad：只看单侧日志**
+
+```text
+[4G TX] len=15
+UP,test=hello
+```
+
+这只能说明 STM32 调用了发送接口，不能证明 DTU 已收到，更不能证明云端已收到。
+
+### 6. Tests Required
+
+- 上电后 USART1 看到 `[4G] usart2 rx dma ready`。
+- 自环测试：PA2->PA3，发送固定字符串，USART1 必须收到同一字符串。
+- DTU 上行测试：串口助手触发发送 `UP,test=hello`，云端必须收到。
+- DTU 下行测试：云端下发文本，USART1 必须出现 `[4G RX]` 和原文。
+- 连续下发 5 次，`events` 递增，不能只收到第一帧。
+- 关闭 `debug_forward` 后，USART1 不输出，但上行发送和下行 ring buffer 消费不能被破坏。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+    printf("[4G RX] %u\r\n", size);  /* 中断里阻塞打印 */
+    parse_downlink(rx_dma_buffer);   /* 中断里解析 */
+}
+```
+
+#### Correct
+
+```c
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+    m100pg_rx_event_callback(huart, size);
+}
+
+void m100pg_task(void)
+{
+    /* 从 ring buffer 取数据，再调试转发或解析 */
+}
+```
