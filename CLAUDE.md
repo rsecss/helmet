@@ -26,7 +26,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2) → ADC DMA 启动 → rgb_led_init（三色 LED 默认白色） → m100pg_init（USART2 空闲 DMA 接收） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2, TIM3) → ADC DMA 启动 → rgb_led_init（三色 LED 默认白色） → pwm_motor_init（TB6612FNG 默认安全停止） → m100pg_init（USART2 空闲 DMA 接收） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
 M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须调用 `rgb_led_*` 公开接口，不得直接写 PB12/PB13/PB14。
 
@@ -45,7 +45,9 @@ M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 D
 | USART1  | PA9/PA10  | 115200-8N1, printf 重定向 |
 | ADC1    | PA0       | MQ2 烟雾传感器，DMA 循环采样 |
 | TIM1    | 内部时钟   | 微秒级延时，预分频 72-1（1MHz 计数频率） |
+| TIM3_CH1 | PB4      | TB6612FNG A 通道 PWMA，小风扇 PWM 调速，部分重映射 |
 | GPIO    | PA8       | DHT11 数据线，推挽输出高速模式 |
+| GPIO    | PA11/PA12/PB15 | TB6612FNG AIN2/AIN1/STBY |
 | GPIO    | PB12/PB13/PB14 | 共阴三色 LED，低电平默认熄灭 |
 | I2C1    | PB6/PB7   | MPU6050 六轴传感器，Fast Mode 400kHz |
 | I2C2    | PB10/PB11 | MAX30102 心率血氧传感器，Fast Mode 400kHz |
