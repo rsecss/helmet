@@ -3,7 +3,7 @@
   "name": "oled-pwm-parallel",
   "title": "brainstorm: OLED and PWM motor parallel development",
   "description": "",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "Maple",
   "assignee": "Maple",
   "createdAt": "2026-05-02",
-  "completedAt": null,
+  "completedAt": "2026-05-05",
   "branch": null,
   "base_branch": "dev",
   "worktree_path": null,
@@ -45,9 +45,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "05-02-pwm-motor"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
