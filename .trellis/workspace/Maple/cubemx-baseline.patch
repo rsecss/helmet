@@ -1,0 +1,888 @@
+diff --git a/Core/Inc/tim.h b/Core/Inc/tim.h
+index 4f8003f..afd7f3c 100644
+--- a/Core/Inc/tim.h
++++ b/Core/Inc/tim.h
+@@ -34,11 +34,16 @@ extern "C" {
+ 
+ extern TIM_HandleTypeDef htim1;
+ 
++extern TIM_HandleTypeDef htim3;
++
+ /* USER CODE BEGIN Private defines */
+ 
+ /* USER CODE END Private defines */
+ 
+ void MX_TIM1_Init(void);
++void MX_TIM3_Init(void);
++
++void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+ 
+ /* USER CODE BEGIN Prototypes */
+ 
+diff --git a/Core/Src/gpio.c b/Core/Src/gpio.c
+index 5e5547e..619b06b 100644
+--- a/Core/Src/gpio.c
++++ b/Core/Src/gpio.c
+@@ -50,13 +50,31 @@ void MX_GPIO_Init(void)
+   __HAL_RCC_GPIOB_CLK_ENABLE();
+ 
+   /*Configure GPIO pin Output Level */
+-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14, GPIO_PIN_RESET);
++  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7|GPIO_PIN_11|GPIO_PIN_12, GPIO_PIN_RESET);
++
++  /*Configure GPIO pin Output Level */
++  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_12|GPIO_PIN_13
++                          |GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+ 
+   /*Configure GPIO pin Output Level */
+   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+ 
+-  /*Configure GPIO pins : PB12 PB13 PB14 */
+-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14;
++  /*Configure GPIO pin : PA7 */
++  GPIO_InitStruct.Pin = GPIO_PIN_7;
++  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
++  GPIO_InitStruct.Pull = GPIO_NOPULL;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
++  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
++
++  /*Configure GPIO pins : PB0 PB1 */
++  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
++  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
++  GPIO_InitStruct.Pull = GPIO_NOPULL;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
++  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
++
++  /*Configure GPIO pins : PB12 PB13 PB14 PB15 */
++  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+   GPIO_InitStruct.Pull = GPIO_NOPULL;
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+@@ -69,6 +87,13 @@ void MX_GPIO_Init(void)
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+ 
++  /*Configure GPIO pins : PA11 PA12 */
++  GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12;
++  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
++  GPIO_InitStruct.Pull = GPIO_NOPULL;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
++  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
++
+ }
+ 
+ /* USER CODE BEGIN 2 */
+diff --git a/Core/Src/main.c b/Core/Src/main.c
+index d9d4fb9..4931f77 100644
+--- a/Core/Src/main.c
++++ b/Core/Src/main.c
+@@ -98,6 +98,7 @@ int main(void)
+   MX_I2C1_Init();
+   MX_I2C2_Init();
+   MX_USART2_UART_Init();
++  MX_TIM3_Init();
+   /* USER CODE BEGIN 2 */
+   uint8_t init_result;
+ 
+diff --git a/Core/Src/tim.c b/Core/Src/tim.c
+index 82eed65..d9902a8 100644
+--- a/Core/Src/tim.c
++++ b/Core/Src/tim.c
+@@ -25,6 +25,7 @@
+ /* USER CODE END 0 */
+ 
+ TIM_HandleTypeDef htim1;
++TIM_HandleTypeDef htim3;
+ 
+ /* TIM1 init function */
+ void MX_TIM1_Init(void)
+@@ -66,6 +67,60 @@ void MX_TIM1_Init(void)
+ 
+   /* USER CODE END TIM1_Init 2 */
+ 
++}
++/* TIM3 init function */
++void MX_TIM3_Init(void)
++{
++
++  /* USER CODE BEGIN TIM3_Init 0 */
++
++  /* USER CODE END TIM3_Init 0 */
++
++  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
++  TIM_MasterConfigTypeDef sMasterConfig = {0};
++  TIM_OC_InitTypeDef sConfigOC = {0};
++
++  /* USER CODE BEGIN TIM3_Init 1 */
++
++  /* USER CODE END TIM3_Init 1 */
++  htim3.Instance = TIM3;
++  htim3.Init.Prescaler = 0;
++  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
++  htim3.Init.Period = 3599;
++  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
++  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
++  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
++  {
++    Error_Handler();
++  }
++  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
++  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
++  {
++    Error_Handler();
++  }
++  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
++  {
++    Error_Handler();
++  }
++  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
++  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
++  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
++  {
++    Error_Handler();
++  }
++  sConfigOC.OCMode = TIM_OCMODE_PWM1;
++  sConfigOC.Pulse = 0;
++  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
++  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
++  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
++  {
++    Error_Handler();
++  }
++  /* USER CODE BEGIN TIM3_Init 2 */
++
++  /* USER CODE END TIM3_Init 2 */
++  HAL_TIM_MspPostInit(&htim3);
++
+ }
+ 
+ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
+@@ -82,6 +137,44 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
+ 
+   /* USER CODE END TIM1_MspInit 1 */
+   }
++  else if(tim_baseHandle->Instance==TIM3)
++  {
++  /* USER CODE BEGIN TIM3_MspInit 0 */
++
++  /* USER CODE END TIM3_MspInit 0 */
++    /* TIM3 clock enable */
++    __HAL_RCC_TIM3_CLK_ENABLE();
++  /* USER CODE BEGIN TIM3_MspInit 1 */
++
++  /* USER CODE END TIM3_MspInit 1 */
++  }
++}
++void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
++{
++
++  GPIO_InitTypeDef GPIO_InitStruct = {0};
++  if(timHandle->Instance==TIM3)
++  {
++  /* USER CODE BEGIN TIM3_MspPostInit 0 */
++
++  /* USER CODE END TIM3_MspPostInit 0 */
++
++    __HAL_RCC_GPIOB_CLK_ENABLE();
++    /**TIM3 GPIO Configuration
++    PB4     ------> TIM3_CH1
++    */
++    GPIO_InitStruct.Pin = GPIO_PIN_4;
++    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
++    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
++    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
++
++    __HAL_AFIO_REMAP_TIM3_PARTIAL();
++
++  /* USER CODE BEGIN TIM3_MspPostInit 1 */
++
++  /* USER CODE END TIM3_MspPostInit 1 */
++  }
++
+ }
+ 
+ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
+@@ -98,6 +191,17 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
+ 
+   /* USER CODE END TIM1_MspDeInit 1 */
+   }
++  else if(tim_baseHandle->Instance==TIM3)
++  {
++  /* USER CODE BEGIN TIM3_MspDeInit 0 */
++
++  /* USER CODE END TIM3_MspDeInit 0 */
++    /* Peripheral clock disable */
++    __HAL_RCC_TIM3_CLK_DISABLE();
++  /* USER CODE BEGIN TIM3_MspDeInit 1 */
++
++  /* USER CODE END TIM3_MspDeInit 1 */
++  }
+ }
+ 
+ /* USER CODE BEGIN 1 */
+diff --git a/MDK-ARM/helmet.uvoptx b/MDK-ARM/helmet.uvoptx
+index a820ff7..01b739b 100644
+--- a/MDK-ARM/helmet.uvoptx
++++ b/MDK-ARM/helmet.uvoptx
+@@ -1,4 +1,4 @@
+-<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
++<?xml version="1.0" encoding="UTF-8"?>
+ <ProjectOpt xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_optx.xsd">
+ 
+   <SchemaVersion>1.0</SchemaVersion>
+@@ -45,7 +45,7 @@
+         <PageWidth>79</PageWidth>
+         <PageLength>66</PageLength>
+         <TabStop>8</TabStop>
+-        <ListingPath></ListingPath>
++        <ListingPath />
+       </OPTLEX>
+       <ListingPage>
+         <CreateCListing>1</CreateCListing>
+@@ -104,16 +104,16 @@
+         <bSchkAxf>0</bSchkAxf>
+         <bTchkAxf>0</bTchkAxf>
+         <nTsel>6</nTsel>
+-        <sDll></sDll>
+-        <sDllPa></sDllPa>
+-        <sDlgDll></sDlgDll>
+-        <sDlgPa></sDlgPa>
+-        <sIfile></sIfile>
+-        <tDll></tDll>
+-        <tDllPa></tDllPa>
+-        <tDlgDll></tDlgDll>
+-        <tDlgPa></tDlgPa>
+-        <tIfile></tIfile>
++        <sDll />
++        <sDllPa />
++        <sDlgDll />
++        <sDlgPa />
++        <sIfile />
++        <tDll />
++        <tDllPa />
++        <tDlgDll />
++        <tDlgPa />
++        <tIfile />
+         <pMon>STLink\ST-LINKIII-KEIL_SWO.dll</pMon>
+       </DebugOpt>
+       <TargetDriverDllRegistry>
+@@ -128,7 +128,7 @@
+           <Name>-U1B001000142D363637365744 -O2254 -SF10000 -C0 -A0 -I0 -HNlocalhost -HP7184 -P1 -N00("") -D00(00000000) -L00(0) -TO131090 -TC8000000 -TT10000000 -TP21 -TDS8000 -TDT0 -TDC1F -TIEFFFFFFFF -TIP8 -FO15 -FD20000000 -FC800 -FN1 -FF0STM32F10x_128.FLM -FS08000000 -FL010000 -FP0($$Device:STM32F103C8$Flash\STM32F10x_128.FLM) -WA0 -WE0 -WVCE4 -WS2710 -WM0 -WP2 -WK0-R0</Name>
+         </SetRegEntry>
+       </TargetDriverDllRegistry>
+-      <Breakpoint/>
++      <Breakpoint />
+       <Tracepoint>
+         <THDelay>0</THDelay>
+       </Tracepoint>
+@@ -158,19 +158,19 @@
+         <newCpu>0</newCpu>
+         <uProt>0</uProt>
+       </DebugFlag>
+-      <LintExecutable></LintExecutable>
+-      <LintConfigFile></LintConfigFile>
++      <LintExecutable />
++      <LintConfigFile />
+       <bLintAuto>0</bLintAuto>
+       <bAutoGenD>0</bAutoGenD>
+       <LntExFlags>0</LntExFlags>
+-      <pMisraName></pMisraName>
+-      <pszMrule></pszMrule>
+-      <pSingCmds></pSingCmds>
+-      <pMultCmds></pMultCmds>
+-      <pMisraNamep></pMisraNamep>
+-      <pszMrulep></pszMrulep>
+-      <pSingCmdsp></pSingCmdsp>
+-      <pMultCmdsp></pMultCmdsp>
++      <pMisraName />
++      <pszMrule />
++      <pSingCmds />
++      <pMultCmds />
++      <pMisraNamep />
++      <pszMrulep />
++      <pSingCmdsp />
++      <pMultCmdsp />
+       <DebugDescription>
+         <Enable>1</Enable>
+         <EnableFlashSeq>0</EnableFlashSeq>
+diff --git a/MDK-ARM/helmet.uvprojx b/MDK-ARM/helmet.uvprojx
+index 9364593..7604d87 100644
+--- a/MDK-ARM/helmet.uvprojx
++++ b/MDK-ARM/helmet.uvprojx
+@@ -1,10 +1,7 @@
+-<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+-<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
+-
++<?xml version="1.0" encoding="UTF-8"?>
++<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" noNamespaceSchemaLocation="project_projx.xsd">
+   <SchemaVersion>2.1</SchemaVersion>
+-
+   <Header>### uVision Project, (C) Keil Software</Header>
+-
+   <Targets>
+     <Target>
+       <TargetName>helmet</TargetName>
+@@ -19,28 +16,28 @@
+           <PackID>Keil.STM32F1xx_DFP.2.4.0</PackID>
+           <PackURL>http://www.keil.com/pack/</PackURL>
+           <Cpu>IRAM(0x20000000-0x20004FFF) IROM(0x8000000-0x800FFFF)  CLOCK(8000000) CPUTYPE("Cortex-M3") TZ</Cpu>
+-          <FlashUtilSpec></FlashUtilSpec>
+-          <StartupFile></StartupFile>
+-          <FlashDriverDll></FlashDriverDll>
++          <FlashUtilSpec />
++          <StartupFile />
++          <FlashDriverDll />
+           <DeviceId>0</DeviceId>
+-          <RegisterFile></RegisterFile>
+-          <MemoryEnv></MemoryEnv>
+-          <Cmp></Cmp>
+-          <Asm></Asm>
+-          <Linker></Linker>
+-          <OHString></OHString>
+-          <InfinionOptionDll></InfinionOptionDll>
+-          <SLE66CMisc></SLE66CMisc>
+-          <SLE66AMisc></SLE66AMisc>
+-          <SLE66LinkerMisc></SLE66LinkerMisc>
++          <RegisterFile />
++          <MemoryEnv />
++          <Cmp />
++          <Asm />
++          <Linker />
++          <OHString />
++          <InfinionOptionDll />
++          <SLE66CMisc />
++          <SLE66AMisc />
++          <SLE66LinkerMisc />
+           <SFDFile>$$Device:STM32F103C8$SVD\STM32F103xx.svd</SFDFile>
+           <bCustSvd>0</bCustSvd>
+           <UseEnv>0</UseEnv>
+-          <BinPath></BinPath>
+-          <IncludePath></IncludePath>
+-          <LibPath></LibPath>
+-          <RegisterFilePath></RegisterFilePath>
+-          <DBRegisterFilePath></DBRegisterFilePath>
++          <BinPath />
++          <IncludePath />
++          <LibPath />
++          <RegisterFilePath />
++          <DBRegisterFilePath />
+           <TargetStatus>
+             <Error>0</Error>
+             <ExitCodeStop>0</ExitCodeStop>
+@@ -55,15 +52,15 @@
+           <CreateHexFile>1</CreateHexFile>
+           <DebugInformation>1</DebugInformation>
+           <BrowseInformation>1</BrowseInformation>
+-          <ListingPath></ListingPath>
++          <ListingPath />
+           <HexFormatSelection>1</HexFormatSelection>
+           <Merge32K>0</Merge32K>
+           <CreateBatchFile>0</CreateBatchFile>
+           <BeforeCompile>
+             <RunUserProg1>0</RunUserProg1>
+             <RunUserProg2>0</RunUserProg2>
+-            <UserProg1Name></UserProg1Name>
+-            <UserProg2Name></UserProg2Name>
++            <UserProg1Name />
++            <UserProg2Name />
+             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+             <nStopU1X>0</nStopU1X>
+@@ -72,8 +69,8 @@
+           <BeforeMake>
+             <RunUserProg1>0</RunUserProg1>
+             <RunUserProg2>0</RunUserProg2>
+-            <UserProg1Name></UserProg1Name>
+-            <UserProg2Name></UserProg2Name>
++            <UserProg1Name />
++            <UserProg2Name />
+             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+             <nStopB1X>0</nStopB1X>
+@@ -82,15 +79,15 @@
+           <AfterMake>
+             <RunUserProg1>0</RunUserProg1>
+             <RunUserProg2>1</RunUserProg2>
+-            <UserProg1Name></UserProg1Name>
+-            <UserProg2Name></UserProg2Name>
++            <UserProg1Name />
++            <UserProg2Name />
+             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+             <nStopA1X>0</nStopA1X>
+             <nStopA2X>0</nStopA2X>
+           </AfterMake>
+           <SelectedForBatchBuild>1</SelectedForBatchBuild>
+-          <SVCSIdString></SVCSIdString>
++          <SVCSIdString />
+         </TargetCommonOption>
+         <CommonProperty>
+           <UseCPPCompiler>0</UseCPPCompiler>
+@@ -104,8 +101,8 @@
+           <AssembleAssemblyFile>0</AssembleAssemblyFile>
+           <PublicsOnly>0</PublicsOnly>
+           <StopOnExitCode>3</StopOnExitCode>
+-          <CustomArgument></CustomArgument>
+-          <IncludeLibraryModules></IncludeLibraryModules>
++          <CustomArgument />
++          <IncludeLibraryModules />
+           <ComprImg>0</ComprImg>
+         </CommonProperty>
+         <DllOption>
+@@ -114,7 +111,7 @@
+           <SimDlgDll>DCM.DLL</SimDlgDll>
+           <SimDlgDllArguments>-pCM3</SimDlgDllArguments>
+           <TargetDllName>SARMCM3.DLL</TargetDllName>
+-          <TargetDllArguments></TargetDllArguments>
++          <TargetDllArguments />
+           <TargetDlgDll>TCM.DLL</TargetDlgDll>
+           <TargetDlgDllArguments>-pCM3</TargetDlgDllArguments>
+         </DllOption>
+@@ -138,11 +135,11 @@
+           </Flash1>
+           <bUseTDR>1</bUseTDR>
+           <Flash2>BIN\UL2V8M.DLL</Flash2>
+-          <Flash3></Flash3>
+-          <Flash4></Flash4>
+-          <pFcarmOut></pFcarmOut>
+-          <pFcarmGrp></pFcarmGrp>
+-          <pFcArmRoot></pFcArmRoot>
++          <Flash3 />
++          <Flash4 />
++          <pFcarmOut />
++          <pFcarmGrp />
++          <pFcArmRoot />
+           <FcArmLst>0</FcArmLst>
+         </Utilities>
+         <TargetArmAds>
+@@ -175,7 +172,7 @@
+             <RvctClst>0</RvctClst>
+             <GenPPlst>0</GenPPlst>
+             <AdsCpuType>"Cortex-M3"</AdsCpuType>
+-            <RvctDeviceName></RvctDeviceName>
++            <RvctDeviceName />
+             <mOS>0</mOS>
+             <uocRom>0</uocRom>
+             <uocRam>0</uocRam>
+@@ -310,7 +307,7 @@
+                 <Size>0x0</Size>
+               </OCR_RVCT10>
+             </OnChipMemories>
+-            <RvctStartVector></RvctStartVector>
++            <RvctStartVector />
+           </ArmAdsMisc>
+           <Cads>
+             <interw>1</interw>
+@@ -337,9 +334,9 @@
+             <v6WtE>0</v6WtE>
+             <v6Rtti>0</v6Rtti>
+             <VariousControls>
+-              <MiscControls></MiscControls>
++              <MiscControls />
+               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
+-              <Undefine></Undefine>
++              <Undefine />
+               <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;../APP</IncludePath>
+             </VariousControls>
+           </Cads>
+@@ -355,10 +352,10 @@
+             <useXO>0</useXO>
+             <ClangAsOpt>1</ClangAsOpt>
+             <VariousControls>
+-              <MiscControls></MiscControls>
+-              <Define></Define>
+-              <Undefine></Undefine>
+-              <IncludePath></IncludePath>
++              <MiscControls />
++              <Define />
++              <Undefine />
++              <IncludePath />
+             </VariousControls>
+           </Aads>
+           <LDads>
+@@ -368,15 +365,15 @@
+             <noStLib>0</noStLib>
+             <RepFail>1</RepFail>
+             <useFile>0</useFile>
+-            <TextAddressRange></TextAddressRange>
+-            <DataAddressRange></DataAddressRange>
+-            <pXoBase></pXoBase>
+-            <ScatterFile></ScatterFile>
+-            <IncludeLibs></IncludeLibs>
+-            <IncludeLibsPath></IncludeLibsPath>
+-            <Misc></Misc>
+-            <LinkerInputFile></LinkerInputFile>
+-            <DisabledWarnings></DisabledWarnings>
++            <TextAddressRange />
++            <DataAddressRange />
++            <pXoBase />
++            <ScatterFile />
++            <IncludeLibs />
++            <IncludeLibsPath />
++            <Misc />
++            <LinkerInputFile />
++            <DisabledWarnings />
+           </LDads>
+         </TargetArmAds>
+       </TargetOption>
+@@ -421,8 +418,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -450,12 +445,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -477,8 +466,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -506,12 +493,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -533,8 +514,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -562,12 +541,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -589,8 +562,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -618,12 +589,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -670,8 +635,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -699,12 +662,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -726,8 +683,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -755,12 +710,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -832,8 +781,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -861,12 +808,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -888,8 +829,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -917,12 +856,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -944,8 +877,6 @@
+                   <AssembleAssemblyFile>2</AssembleAssemblyFile>
+                   <PublicsOnly>2</PublicsOnly>
+                   <StopOnExitCode>11</StopOnExitCode>
+-                  <CustomArgument></CustomArgument>
+-                  <IncludeLibraryModules></IncludeLibraryModules>
+                   <ComprImg>1</ComprImg>
+                 </CommonProperty>
+                 <FileArmAds>
+@@ -973,12 +904,6 @@
+                     <v6Lto>2</v6Lto>
+                     <v6WtE>2</v6WtE>
+                     <v6Rtti>2</v6Rtti>
+-                    <VariousControls>
+-                      <MiscControls></MiscControls>
+-                      <Define></Define>
+-                      <Undefine></Undefine>
+-                      <IncludePath></IncludePath>
+-                    </VariousControls>
+                   </Cads>
+                 </FileArmAds>
+               </FileOption>
+@@ -1113,13 +1038,11 @@
+       </Groups>
+     </Target>
+   </Targets>
+-
+   <RTE>
+-    <apis/>
+-    <components/>
+-    <files/>
++    <apis />
++    <components />
++    <files />
+   </RTE>
+-
+   <LayerInfo>
+     <Layers>
+       <Layer>
+@@ -1128,5 +1051,5 @@
+       </Layer>
+     </Layers>
+   </LayerInfo>
+-
+ </Project>
++
+diff --git a/helmet.ioc b/helmet.ioc
+index 9ced803..1be23f1 100644
+--- a/helmet.ioc
++++ b/helmet.ioc
+@@ -41,37 +41,46 @@ Mcu.CPN=STM32F103C8T6
+ Mcu.Family=STM32F1
+ Mcu.IP0=ADC1
+ Mcu.IP1=DMA
++Mcu.IP10=USART2
+ Mcu.IP2=I2C1
+ Mcu.IP3=I2C2
+ Mcu.IP4=NVIC
+ Mcu.IP5=RCC
+ Mcu.IP6=SYS
+ Mcu.IP7=TIM1
+-Mcu.IP8=USART1
+-Mcu.IP9=USART2
+-Mcu.IPNb=10
++Mcu.IP8=TIM3
++Mcu.IP9=USART1
++Mcu.IPNb=11
+ Mcu.Name=STM32F103C(8-B)Tx
+ Mcu.Package=LQFP48
+ Mcu.Pin0=PD0-OSC_IN
+ Mcu.Pin1=PD1-OSC_OUT
+-Mcu.Pin10=PA8
+-Mcu.Pin11=PA9
+-Mcu.Pin12=PA10
+-Mcu.Pin13=PA13
+-Mcu.Pin14=PA14
+-Mcu.Pin15=PB6
+-Mcu.Pin16=PB7
+-Mcu.Pin17=VP_SYS_VS_Systick
+-Mcu.Pin18=VP_TIM1_VS_ClockSourceINT
++Mcu.Pin10=PB12
++Mcu.Pin11=PB13
++Mcu.Pin12=PB14
++Mcu.Pin13=PB15
++Mcu.Pin14=PA8
++Mcu.Pin15=PA9
++Mcu.Pin16=PA10
++Mcu.Pin17=PA11
++Mcu.Pin18=PA12
++Mcu.Pin19=PA13
+ Mcu.Pin2=PA0-WKUP
++Mcu.Pin20=PA14
++Mcu.Pin21=PB4
++Mcu.Pin22=PB6
++Mcu.Pin23=PB7
++Mcu.Pin24=VP_SYS_VS_Systick
++Mcu.Pin25=VP_TIM1_VS_ClockSourceINT
++Mcu.Pin26=VP_TIM3_VS_ClockSourceINT
+ Mcu.Pin3=PA2
+ Mcu.Pin4=PA3
+-Mcu.Pin5=PB10
+-Mcu.Pin6=PB11
+-Mcu.Pin7=PB12
+-Mcu.Pin8=PB13
+-Mcu.Pin9=PB14
+-Mcu.PinsNb=19
++Mcu.Pin5=PA7
++Mcu.Pin6=PB0
++Mcu.Pin7=PB1
++Mcu.Pin8=PB10
++Mcu.Pin9=PB11
++Mcu.PinsNb=27
+ Mcu.ThirdPartyNb=0
+ Mcu.UserConstants=
+ Mcu.UserName=STM32F103C8Tx
+@@ -94,6 +103,10 @@ NVIC.UsageFault_IRQn=true\:0\:0\:false\:false\:true\:false\:false\:false
+ PA0-WKUP.Signal=ADCx_IN0
+ PA10.Mode=Asynchronous
+ PA10.Signal=USART1_RX
++PA11.Locked=true
++PA11.Signal=GPIO_Output
++PA12.Locked=true
++PA12.Signal=GPIO_Output
+ PA13.Mode=Serial_Wire
+ PA13.Signal=SYS_JTMS-SWDIO
+ PA14.Mode=Serial_Wire
+@@ -102,6 +115,10 @@ PA2.Mode=Asynchronous
+ PA2.Signal=USART2_TX
+ PA3.Mode=Asynchronous
+ PA3.Signal=USART2_RX
++PA7.GPIOParameters=GPIO_Speed
++PA7.GPIO_Speed=GPIO_SPEED_FREQ_MEDIUM
++PA7.Locked=true
++PA7.Signal=GPIO_Output
+ PA8.GPIOParameters=GPIO_Speed,PinState
+ PA8.GPIO_Speed=GPIO_SPEED_FREQ_HIGH
+ PA8.Locked=true
+@@ -109,6 +126,14 @@ PA8.PinState=GPIO_PIN_SET
+ PA8.Signal=GPIO_Output
+ PA9.Mode=Asynchronous
+ PA9.Signal=USART1_TX
++PB0.GPIOParameters=GPIO_Speed
++PB0.GPIO_Speed=GPIO_SPEED_FREQ_MEDIUM
++PB0.Locked=true
++PB0.Signal=GPIO_Output
++PB1.GPIOParameters=GPIO_Speed
++PB1.GPIO_Speed=GPIO_SPEED_FREQ_MEDIUM
++PB1.Locked=true
++PB1.Signal=GPIO_Output
+ PB10.Mode=I2C
+ PB10.Signal=I2C2_SCL
+ PB11.Mode=I2C
+@@ -119,6 +144,10 @@ PB13.Locked=true
+ PB13.Signal=GPIO_Output
+ PB14.Locked=true
+ PB14.Signal=GPIO_Output
++PB15.Locked=true
++PB15.Signal=GPIO_Output
++PB4.Locked=true
++PB4.Signal=S_TIM3_CH1
+ PB6.Mode=I2C
+ PB6.Signal=I2C1_SCL
+ PB7.Mode=I2C
+@@ -193,8 +222,14 @@ RCC.USBFreq_Value=72000000
+ RCC.VCOOutput2Freq_Value=8000000
+ SH.ADCx_IN0.0=ADC1_IN0,IN0
+ SH.ADCx_IN0.ConfNb=1
++SH.S_TIM3_CH1.0=TIM3_CH1,PWM Generation1 CH1
++SH.S_TIM3_CH1.ConfNb=1
+ TIM1.IPParameters=Prescaler
+ TIM1.Prescaler=72-1
++TIM3.AutoReloadPreload=TIM_AUTORELOAD_PRELOAD_ENABLE
++TIM3.Channel-PWM\ Generation1\ CH1=TIM_CHANNEL_1
++TIM3.IPParameters=Channel-PWM Generation1 CH1,Period,AutoReloadPreload
++TIM3.Period=3599
+ USART1.IPParameters=VirtualMode
+ USART1.VirtualMode=VM_ASYNC
+ USART2.IPParameters=VirtualMode
+@@ -203,4 +238,6 @@ VP_SYS_VS_Systick.Mode=SysTick
+ VP_SYS_VS_Systick.Signal=SYS_VS_Systick
+ VP_TIM1_VS_ClockSourceINT.Mode=Internal
+ VP_TIM1_VS_ClockSourceINT.Signal=TIM1_VS_ClockSourceINT
++VP_TIM3_VS_ClockSourceINT.Mode=Internal
++VP_TIM3_VS_ClockSourceINT.Signal=TIM3_VS_ClockSourceINT
+ board=custom

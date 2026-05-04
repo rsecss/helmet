@@ -468,3 +468,59 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: ST7735 彩色显示屏模块
+
+**Date**: 2026-05-05
+**Task**: ST7735 彩色显示屏模块
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Item | Details |
+|------|---------|
+| Feature | Added APP-level ST7735 color TFT display module for 1.44-inch 128x128 panel using GPIO software SPI. |
+| Wiring | PB0=SCL, PA7=SDA, PB1=DC; CS/RES/BLK kept outside firmware control for this round. |
+| Display | Boot self-test shows color blocks and ST7735 OK, then clears and displays DHT11 Temp/Humi ASCII page. |
+| Debug Results | Hardware testing fixed white screen/control-pin assumptions, panel offset noise, orientation, font size, and mirrored character bit order. |
+| Docs | Updated README, CLAUDE, OLED PRD, and backend directory-structure spec with executable ST7735 contracts and validation matrix. |
+| Verification | Keil build/download and human hardware test passed; task context validation, git diff --check, header guard, encoding, and forbidden-pattern checks passed. cppcheck was not run locally because it is not installed. |
+
+**Updated Files**:
+- `APP/st7735.c`
+- `APP/st7735.h`
+- `APP/lcd_font_lib.h`
+- `APP/bsp_system.h`
+- `APP/scheduler.c`
+- `Core/Src/main.c`
+- `MDK-ARM/helmet.uvprojx`
+- `MDK-ARM/helmet/helmet.hex`
+- `README.md`
+- `CLAUDE.md`
+- `.trellis/spec/backend/directory-structure.md`
+- `.trellis/tasks/archive/2026-05/05-02-oled-display/`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e0e65b2` | (see git log) |
+| `85a9fd5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

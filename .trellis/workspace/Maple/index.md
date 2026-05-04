@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
-- **Last Active**: 2026-05-04
+- **Total Sessions**: 11
+- **Last Active**: 2026-05-05
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~470 | Active |
+| `journal-1.md` | ~526 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-05-05 | ST7735 彩色显示屏模块 | `e0e65b2`, `85a9fd5` | `dev` |
 | 10 | 2026-05-04 | PWM 电机驱动模块（TB6612FNG A 通道） | `3b935b3` | `feature/pwm-motor` |
 | 9 | 2026-04-29 | 新增三色 LED 模块 | `4b4fe05`, `a6bb8ef` | `dev` |
 | 8 | 2026-04-29 | 4G DTU 基础透传链路 | `774c2dd` | `dev` |
