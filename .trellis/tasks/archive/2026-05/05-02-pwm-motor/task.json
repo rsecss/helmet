@@ -1,0 +1,53 @@
+{
+  "id": "pwm-motor",
+  "name": "pwm-motor",
+  "title": "PWM motor driver module",
+  "description": "",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "firmware-pwm-motor",
+  "package": null,
+  "priority": "P2",
+  "creator": "Maple",
+  "assignee": "Maple",
+  "createdAt": "2026-05-02",
+  "completedAt": "2026-05-04",
+  "branch": "feature/pwm-motor",
+  "base_branch": "dev",
+  "worktree_path": null,
+  "current_phase": 4,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "05-02-oled-pwm-parallel",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

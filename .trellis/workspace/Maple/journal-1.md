@@ -410,3 +410,61 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: PWM 电机驱动模块（TB6612FNG A 通道）
+
+**Date**: 2026-05-04
+**Task**: PWM 电机驱动模块（TB6612FNG A 通道）
+**Branch**: `feature/pwm-motor`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Item | Description |
+|------|-------------|
+| 新模块 | `APP/pwm_motor.c/h` 封装 TB6612FNG A 通道驱动 |
+| 公开接口 | `pwm_motor_init/stop/set_speed/set_direction/set_signed_speed` |
+| 时基 | TIM3_CH1 部分重映射 → PB4，Period=3599，Prescaler=0 |
+| 控制脚 | PA12=AIN1，PA11=AIN2，PB15=STBY |
+| 安全策略 | 默认进入安全停止；方向切换先归零再换向再恢复速度；速度百分比超 100 自动夹断 |
+| 启动顺序 | `MX_TIM3_Init` → `pwm_motor_init()`（main.c 在 `MX_USART2_UART_Init` 之后插入） |
+
+**新增/更新文件**:
+- `APP/pwm_motor.c`、`APP/pwm_motor.h`（模块实现与公开接口）
+- `APP/bsp_system.h`（统一引入）
+- `Core/Src/main.c`（外设初始化后调用 `pwm_motor_init`）
+- `Core/Src/tim.c`、`Core/Inc/tim.h`（CubeMX 生成 TIM3_CH1 PWM）
+- `Core/Src/gpio.c`（PA11/PA12/PB15 输出配置）
+- `helmet.ioc`（启用 TIM3、PB4 重映射、新增方向/STBY 引脚）
+- `MDK-ARM/helmet.uvprojx`、`helmet.uvoptx`、`helmet.hex`（Keil 工程纳入新源文件并重新编译）
+- `README.md`、`CLAUDE.md`（外设映射表 + 执行流程同步）
+
+**任务归档**:
+- `.trellis/tasks/05-02-pwm-motor` → `archive/2026-05/`
+
+**验证**:
+- 板上实测：duty 0/50/100 风扇响应正常，启动后保持安全停止
+- Keil 构建生成 `helmet.hex` 已纳入提交
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b935b3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

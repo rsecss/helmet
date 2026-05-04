@@ -1024,6 +1024,16 @@
               <FilePath>..\APP\m100pg_protocol.h</FilePath>
             </File>
             <File>
+              <FileName>pwm_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\pwm_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>pwm_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\pwm_motor.h</FilePath>
+            </File>
+            <File>
               <FileName>rgb_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\rgb_led.c</FilePath>

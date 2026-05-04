@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-04-29
+- **Total Sessions**: 10
+- **Last Active**: 2026-05-04
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~412 | Active |
+| `journal-1.md` | ~470 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-05-04 | PWM 电机驱动模块（TB6612FNG A 通道） | `3b935b3` | `feature/pwm-motor` |
 | 9 | 2026-04-29 | 新增三色 LED 模块 | `4b4fe05`, `a6bb8ef` | `dev` |
 | 8 | 2026-04-29 | 4G DTU 基础透传链路 | `774c2dd` | `dev` |
 | 7 | 2026-04-28 | 完成 MAX30102 心率血氧模块 | `3b0f8f8`, `51a993f` | `dev` |
