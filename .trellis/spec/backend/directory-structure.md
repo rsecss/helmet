@@ -143,3 +143,102 @@ void mpu6050_task(void) { ... }
 - `APP/scheduler.c` — 简洁的调度器，入门阅读
 - `APP/mpu6050.c` — 带 DMP 姿态解算、原始数据读取、任务函数的完整模块
 - `APP/ringbuffer.c` — 独立无依赖的通用数据结构
+
+---
+
+## Scenario: ST7735 GPIO Software SPI Display Module
+
+### 1. Scope / Trigger
+
+Use this contract when adding or modifying a small ST7735/ST7735S RGB TFT display on the STM32F103 application layer, especially when the PCB uses GPIO bit-banged SPI instead of a CubeMX hardware SPI peripheral.
+
+### 2. Signatures
+
+`APP/st7735.h` public API:
+
+```c
+uint8_t st7735_init(void);
+void st7735_task(void);
+uint8_t st7735_clear(void);
+uint8_t st7735_fill_screen(uint16_t color);
+uint8_t st7735_fill_rect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint16_t color);
+uint8_t st7735_draw_string(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color);
+uint8_t st7735_show_dht11_status(void);
+uint8_t st7735_is_ready(void);
+```
+
+Current board mapping in `APP/st7735.c`:
+
+```c
+#define ST7735_DC_GPIO_PORT         GPIOB
+#define ST7735_DC_PIN               GPIO_PIN_1
+#define ST7735_SCL_GPIO_PORT        GPIOB
+#define ST7735_SCL_PIN              GPIO_PIN_0
+#define ST7735_SDA_GPIO_PORT        GPIOA
+#define ST7735_SDA_PIN              GPIO_PIN_7
+#define ST7735_X_OFFSET             2U
+#define ST7735_Y_OFFSET             3U
+#define ST7735_MADCTL_VALUE         0xC0U
+#define ST7735_FONT_WIDTH           6U
+#define ST7735_FONT_HEIGHT          12U
+```
+
+### 3. Contracts
+
+- `CS`, `RES/RST`, and `BLK` are not firmware-controlled in the current wiring. If the panel stays white or does not receive commands, first wire `CS` to `GND` and `RES/RST` to `3.3V`; if the backlight is dark, wire `BLK` to `3.3V`.
+- The public header must not expose GPIO ports, pins, ST7735 command bytes, MADCTL values, offsets, or font table internals.
+- `APP/st7735.c` owns all display drawing and hardware bit-banging. Other modules call public `st7735_*` APIs and must not write the display GPIO directly.
+- `st7735_init()` may run a visible hardware bring-up self-test, but `st7735_task()` must return quickly and only redraw dirty text regions.
+- The display path must not allocate a full-screen RGB565 framebuffer. Use direct/windowed writes such as `st7735_set_address_window()` plus bounded pixel loops.
+- The current status page uses ASCII `asc2_1206`. This font table's pixel bits are read low-bit first with `(0x01U << col)`, not high-bit first, otherwise characters display mirrored.
+- This write-only bus cannot verify real panel presence. Treat `[ST7735] init=0` plus visible color blocks/text as the practical bring-up gate.
+
+### 4. Validation & Error Matrix
+
+| Symptom | First check | Required validation |
+|---------|-------------|---------------------|
+| Serial shows `[ST7735] init=0`, screen remains white | `CS` / `RES` wiring | Connect `CS=GND`, `RES/RST=3.3V`, power-cycle, confirm color blocks appear |
+| Backlight is dark | `BLK` wiring | Connect `BLK=3.3V` and verify the panel is lit |
+| Side or bottom has colored noise | `ST7735_X_OFFSET`, `ST7735_Y_OFFSET` | Tune offsets at the module top and verify black clear reaches visible edges |
+| Whole screen direction is upside down | `ST7735_MADCTL_VALUE` | Try only MADCTL values before changing font drawing or coordinates |
+| Individual characters are mirrored | font bit order | For `asc2_1206`, read bits as `(0x01U << col)` and verify `Temp` / `Humi` render normally |
+| DHT11 init fails | DHT11 hardware path | Display should show `Temp:--C` / `Humi:--%`; this is not an ST7735 failure |
+| 4G downlink becomes unresponsive | display task too heavy | Ensure `st7735_task()` dirty-checks values and does not full-screen redraw every 200ms |
+
+### 5. Good/Base/Bad Cases
+
+**Good**: `st7735_task()` compares cached DHT11 value/valid state, redraws only changed `Temp` / `Humi` lines, and exits immediately when unchanged.
+
+**Base**: `st7735_init()` sends the ST7735 command sequence, clears black, shows red/green/blue/white blocks, displays `ST7735 OK`, then clears before showing the runtime page.
+
+**Bad**: A scheduler task clears and redraws the whole 128x128 screen every 200ms, or a caller outside `APP/st7735.c` toggles `PB0` / `PA7` / `PB1` directly.
+
+### 6. Tests Required
+
+- Build with Keil and confirm no C compile errors after adding `APP/st7735.c` to `MDK-ARM/helmet.uvprojx`.
+- Serial boot log must include `[ST7735] init=0` and `[BOOT] scheduler ready`.
+- Hardware must show the boot color self-test and then a readable ASCII page.
+- With DHT11 invalid, display must show `Temp:--C` and `Humi:--%`.
+- With DHT11 valid, display must update to numeric values such as `Temp:25C` and `Humi:50%`.
+- Search the display module for forbidden runtime patterns: `HAL_MAX_DELAY`, `0xFFFFFF`, `malloc`, `free`, and `printf`.
+- Run `git diff --check` and APP header guard / UTF-8 no BOM / LF checks before commit.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+/* High-bit-first rendering mirrors asc2_1206 characters on the tested panel/font table. */
+if ((glyph_row & (uint8_t)(0x20U >> col)) != 0U) {
+    st7735_write_color(color);
+}
+```
+
+#### Correct
+
+```c
+/* asc2_1206 rows are consumed low-bit first for this display path. */
+if ((glyph_row & (uint8_t)(0x01U << col)) != 0U) {
+    st7735_write_color(color);
+}
+```

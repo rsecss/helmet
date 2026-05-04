@@ -1043,6 +1043,16 @@
               <FileType>5</FileType>
               <FilePath>..\APP\rgb_led.h</FilePath>
             </File>
+            <File>
+              <FileName>st7735.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\st7735.c</FilePath>
+            </File>
+            <File>
+              <FileName>st7735.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\st7735.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

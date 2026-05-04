@@ -114,6 +114,12 @@ int main(void)
   printf("[MPU6050] init done\r\n");
   init_result = max30102_init();    // MAX30102 心率血氧传感器初始化
   printf("[MAX30102] init=%u\r\n", init_result);
+  init_result = st7735_init();      // ST7735 彩色显示屏初始化
+  printf("[ST7735] init=%u\r\n", init_result);
+  if (init_result != 0U)
+  {
+    Error_Handler();
+  }
   m100pg_init();      // M100PG 4G 模块串口接收转发初始化
   scheduler_init();   // 初始化调度器
   printf("[BOOT] scheduler ready\r\n");

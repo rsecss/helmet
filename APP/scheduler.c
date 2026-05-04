@@ -15,7 +15,8 @@ static task_t scheduler_task[] = {
     {mq2_task, 100, 0},
     {dht11_task, 1000, 0},
     {mpu6050_task, 10, 0},
-    {max30102_task, 50, 0}
+    {max30102_task, 50, 0},
+    {st7735_task, 200, 0}
 };
 
 /**

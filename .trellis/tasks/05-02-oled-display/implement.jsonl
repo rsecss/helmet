@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "APP module registration and CubeMX boundaries"}
+{"file": "APP/scheduler.c", "reason": "scheduler integration pattern"}
+{"file": "APP/rgb_led.c", "reason": "GPIO private mapping example"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP code style, header guards, GPIO mapping boundaries"}

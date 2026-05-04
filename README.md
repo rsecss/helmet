@@ -64,6 +64,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | M100PG 4G DTU | `APP/m100pg.c` / `APP/m100pg_protocol.c` | USART2 DMA 空闲接收，1000ms 上传传感器帧，解析 `LED_ON/OFF/WHITE/RED/GREEN` 并可转发到 USART1 调试口 |
 | 三色 LED | `APP/rgb_led.c` | PB12/PB13/PB14 控制共阴 RGB LED，默认白色，供云端 LED 颜色控制 |
 | PWM 电机驱动 | `APP/pwm_motor.c` | TIM3_CH1/PB4 控制 TB6612FNG A 通道 PWMA，公开接口提供调速、转向和停止 |
+| ST7735 彩色显示屏 | `APP/st7735.c` | GPIO 软件 SPI，PB0=SCL、PA7=SDA、PB1=DC，200ms 脏刷新 DHT11 温湿度 ASCII 文本 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构
