@@ -162,6 +162,7 @@ uint8_t st7735_clear(void);
 uint8_t st7735_fill_screen(uint16_t color);
 uint8_t st7735_fill_rect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint16_t color);
 uint8_t st7735_draw_string(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color);
+uint8_t st7735_draw_text(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color);
 uint8_t st7735_is_ready(void);
 ```
 
@@ -186,6 +187,8 @@ Current board mapping in `APP/st7735.c`:
 #define ST7735_MADCTL_VALUE         0xC0U
 #define ST7735_FONT_WIDTH           6U
 #define ST7735_FONT_HEIGHT          12U
+#define ST7735_CN12_WIDTH           12U
+#define ST7735_CN12_HEIGHT          12U
 ```
 
 ### 3. Contracts
@@ -198,6 +201,11 @@ Current board mapping in `APP/st7735.c`:
 - `st7735_init()` may run a visible hardware bring-up self-test. Runtime sensor page refresh belongs in `lcd_app_task()`, which must return quickly and only redraw dirty text regions.
 - The display path must not allocate a full-screen RGB565 framebuffer. Use direct/windowed writes such as `st7735_set_address_window()` plus bounded pixel loops.
 - The current status page uses ASCII `asc2_1206`. This font table's pixel bits are read low-bit first with `(0x01U << col)`, not high-bit first, otherwise characters display mirrored.
+- Mixed Chinese/ASCII text must use `st7735_draw_text()`. ASCII remains 6x12; Chinese glyphs are 12x12 so the page is same-height but not monospace.
+- `APP/lcd_font_lib.h` stores project-specific Chinese glyphs in `tfont_cn12` as UTF-8 byte keys: `unsigned char Index[4]` plus 24 bytes of 12x12 bitmap data. Do not use GBK/GB2312 string labels such as `"温"` or mojibake text as struct keys; Keil source-charset handling can turn them into `missing closing quote` compile errors or `char[n]` initializer width errors.
+- `APP/lcd_app.c` Chinese labels must be written as UTF-8 hex escapes inside C string literals, for example `"\xE6\xB8\xA9\xE5\xBA\xA6:%uC"` for `温度:%uC`. Chinese comments are fine; the restriction is on runtime string literals and font-table keys that the compiler must parse as C strings.
+- Keep `tfont_cn12` limited to glyphs used by SmartHelm LCD pages. When a new Chinese label is added, add only the required UTF-8 byte key and 12x12 bitmap entry.
+- When generating 12x12 glyphs from desktop fonts, validate the top row and baseline on hardware. Characters with top strokes or dots such as `温` and `度` must not lose their first visible stroke; adjust the rasterization Y offset before committing the table.
 - This write-only bus cannot verify real panel presence. Treat `[ST7735] init=0` plus visible color blocks/text as the practical bring-up gate.
 
 ### 4. Validation & Error Matrix
@@ -209,6 +217,9 @@ Current board mapping in `APP/st7735.c`:
 | Side or bottom has colored noise | `ST7735_X_OFFSET`, `ST7735_Y_OFFSET` | Tune offsets at the module top and verify black clear reaches visible edges |
 | Whole screen direction is upside down | `ST7735_MADCTL_VALUE` | Try only MADCTL values before changing font drawing or coordinates |
 | Individual characters are mirrored | font bit order | For `asc2_1206`, read bits as `(0x01U << col)` and verify `Temp` / `Humi` render normally |
+| Keil reports `missing closing quote` in `lcd_font_lib.h` | raw or mojibake Chinese string literal | Replace font keys with UTF-8 byte arrays in `Index[4]` and write LCD labels with `\xNN` escapes |
+| Keil reports `char[n]` cannot initialize `unsigned char[2]` | font key storage too small for encoded Chinese text | Use `Index[4]` for three-byte UTF-8 code points plus NUL, not two-byte GB code assumptions |
+| Chinese glyph top stroke is missing | rasterization clipped above the 12px box | Regenerate the 12x12 bitmap with adjusted Y offset and verify `温度` on hardware |
 | DHT11 init fails | DHT11 hardware path | `lcd_app_task()` should show `Temp:--C` / `Humi:--%`; this is not an ST7735 failure |
 | 4G downlink becomes unresponsive | display task too heavy | Ensure `lcd_app_task()` dirty-checks values and does not full-screen redraw every 200ms |
 
@@ -220,6 +231,8 @@ Current board mapping in `APP/st7735.c`:
 
 **Bad**: `APP/st7735.c` reads `dht11_get_temperature()` or `heart_rate` directly, a scheduler task clears and redraws the whole 128x128 screen every 200ms, or a caller outside `APP/st7735.c` toggles `PB0` / `PA7` / `PB1` directly.
 
+**Bad**: `APP/lcd_font_lib.h` contains large unrelated Chinese font tables or raw/mojibake string keys such as `"锟斤拷"` / `"娣?"`, or `APP/lcd_app.c` writes runtime Chinese labels as direct source characters instead of UTF-8 hex escapes.
+
 ### 6. Tests Required
 
 - Build with Keil and confirm no C compile errors after adding `APP/st7735.c` to `MDK-ARM/helmet.uvprojx`.
@@ -229,6 +242,8 @@ Current board mapping in `APP/st7735.c`:
 - Search `APP/st7735.c` and `APP/st7735.h` for forbidden sensor coupling: `dht11`, `mq2`, `max30102`, `mpu6050`, `heart_rate`, `spo2`, `pitch`.
 - With DHT11 invalid, `lcd_app_task()` display must show `Temp:--C` and `Humi:--%`.
 - With DHT11 valid, `lcd_app_task()` display must update to numeric values such as `Temp:25C` and `Humi:50%`.
+- If Chinese labels are enabled, Keil build must pass with no `missing closing quote` / `char[n] cannot initialize` diagnostics from `APP/lcd_font_lib.h`, and hardware must show `温度` / `湿度` with no missing top strokes.
+- Search `APP/lcd_app.c` and `APP/lcd_font_lib.h` for mojibake markers such as `锟斤拷`, `娣?`, `鍦?`, `鏈?`; none may remain in runtime text or font keys.
 - Search the display module for forbidden runtime patterns: `HAL_MAX_DELAY`, `0xFFFFFF`, `malloc`, `free`, and `printf`.
 - Run `git diff --check` and APP header guard / UTF-8 no BOM / LF checks before commit.
 
