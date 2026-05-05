@@ -102,28 +102,56 @@ int main(void)
   /* USER CODE BEGIN 2 */
   uint8_t init_result;
 
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[BOOT] smarthelm app start\r\n");
+#endif
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dma_buff[0], 30); // 启动 ADC1 的 DMA 模式，将采集到的 30 个数据存储到 dma_buff 数组中
   rgb_led_init();    // 三色 LED 初始化，默认关闭
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[RGB] init off\r\n");
+#endif
   init_result = pwm_motor_init();       // PWM 电机驱动初始化，默认安全停止
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[PWM_MOTOR] init=%u\r\n", init_result);
+#else
+  (void)init_result;
+#endif
   init_result = DHT11_Init();       // DHT11 温湿度传感器初始化
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[DHT11] init=%u\r\n", init_result);
+#else
+  (void)init_result;
+#endif
   mpu6050_init();     // MPU6050 姿态传感器初始化（含 DMP）
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[MPU6050] init done\r\n");
+#endif
   init_result = max30102_init();    // MAX30102 心率血氧传感器初始化
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[MAX30102] init=%u\r\n", init_result);
+#else
+  (void)init_result;
+#endif
   init_result = st7735_init();      // ST7735 彩色显示屏初始化
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[ST7735] init=%u\r\n", init_result);
+#endif
   if (init_result != 0U)
   {
     Error_Handler();
   }
   lcd_app_init();     // LCD 传感器数据显示页面初始化
+  init_result = asrpro_init();   // ASRPro 离线语音模块 USART1 接收初始化
+#if ASRPRO_ENABLE_USART1_DEBUG
+  printf("[ASRPRO] init=%u\r\n", init_result);
+#else
+  (void)init_result;
+#endif
   m100pg_init();      // M100PG 4G 模块串口接收转发初始化
   scheduler_init();   // 初始化调度器
+#if ASRPRO_ENABLE_USART1_DEBUG
   printf("[BOOT] scheduler ready\r\n");
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */

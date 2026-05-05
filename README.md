@@ -40,7 +40,7 @@ helmet.ioc      STM32CubeMX 工程配置
 
 | 外设 | 引脚 | 用途 |
 |------|------|------|
-| USART1 | PA9 (TX) / PA10 (RX) | 串口调试，115200-8N1 |
+| USART1 | PA9 (TX) / PA10 (RX) | ASRPro 天问离线语音模块，115200-8N1，默认纯语音串口 |
 | ADC1 | PA0 | MQ2 烟雾传感器模拟量采集（DMA 循环采样） |
 | TIM1 | 内部时钟 | 微秒级延时（预分频 72-1，1MHz 计数） |
 | TIM3_CH1 | PB4 | TB6612FNG A 通道 PWMA，小风扇 PWM 调速（部分重映射） |
@@ -62,6 +62,7 @@ helmet.ioc      STM32CubeMX 工程配置
 | MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒确认与激烈碰撞报警，10ms 周期 |
 | MAX30102 心率血氧传感器 | `APP/max30102.c` | I2C2 通信，FIFO 轮询读取 Red/IR，PBA 心跳检测 + AC/DC 比值算 SpO2，50ms 周期 |
 | M100PG 4G DTU | `APP/m100pg.c` / `APP/m100pg_protocol.c` | USART2 DMA 空闲接收，1000ms 上传传感器帧（含 fall/collision 报警状态），解析 `LED_ON/OFF/WHITE/RED/GREEN` 并可转发到 USART1 调试口 |
+| ASRPro 离线语音模块 | `APP/asrpro.c` | USART1 单字节中断接收 `led_on`、`led_off`、`motor_speed_0..3`，默认关闭 USART1 调试输出避免干扰语音模块 |
 | 三色 LED | `APP/rgb_led.c` | PB12/PB13/PB14 控制共阴 RGB LED，默认关闭，供云端 LED 颜色控制 |
 | 本地安全报警 | `APP/helmet_alarm.c` | 读取 MPU6050 报警状态，报警后 RGB 红灯至少快闪 15s，解除后恢复云端下发颜色 |
 | PWM 电机驱动 | `APP/pwm_motor.c` | TIM3_CH1/PB4 控制 TB6612FNG A 通道 PWMA，公开接口提供调速、转向和停止 |
@@ -72,3 +73,5 @@ helmet.ioc      STM32CubeMX 工程配置
 ## 软件架构
 
 采用裸机轮询调度模型，`APP/scheduler.c` 实现基于 SysTick 的毫秒级协作调度器，主循环中周期性执行各任务函数。
+
+ASRPro 语音模块默认占用 USART1：ASR_TX 接 MCU PA10，ASR_RX 接 MCU PA9。语音固件输出固定文本命令，STM32 端仅匹配小写命令词并兼容 `\r\n` 与首尾空白。LED 命令通过 `helmet_alarm_set_base_led()` 设置基础灯态，跌倒/碰撞报警红灯保持优先级；电机命令 `motor_speed_0..3` 映射到 0%、33%、66%、100%。如需临时恢复 USART1 调试，可在 `APP/asrpro.h` 中打开 `ASRPRO_ENABLE_USART1_DEBUG` 或关闭 `ASRPRO_ENABLE_COMMAND_EXECUTION` 后重新编译。

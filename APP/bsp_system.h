@@ -28,6 +28,7 @@ extern "C" {
 #include "m100pg_protocol.h"            // M100PG 上下行协议模块
 #include "m100pg.h"                     // M100PG 4G 联网模块
 #include "m100pg_bsp.h"                 // M100PG 协议库 ↔ 板级硬件桥接
+#include "asrpro.h"                     // ASRPro 离线语音控制模块
 #include "rgb_led.h"                    // 三色 LED 模块
 #include "helmet_alarm.h"               // 本地安全报警输出仲裁
 #include "pwm_motor.h"                  // PWM 电机驱动模块

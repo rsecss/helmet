@@ -1089,6 +1089,16 @@
               <FilePath>..\APP\m100pg.h</FilePath>
             </File>
             <File>
+              <FileName>asrpro.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\asrpro.c</FilePath>
+            </File>
+            <File>
+              <FileName>asrpro.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\asrpro.h</FilePath>
+            </File>
+            <File>
               <FileName>m100pg_protocol.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\m100pg_protocol.c</FilePath>

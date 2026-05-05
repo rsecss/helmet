@@ -1,5 +1,6 @@
 #include "m100pg.h"
 #include "m100pg_bsp.h"
+#include "asrpro.h"
 #include "usart.h"
 
 #define M100PG_RX_DMA_BUFFER_SIZE   128U
@@ -20,7 +21,7 @@ static volatile uint16_t m100pg_rx_count = 0;
 static volatile uint16_t m100pg_last_rx_len = 0;
 static volatile uint32_t m100pg_rx_events = 0;
 static volatile uint8_t m100pg_rx_overflow = 0;
-static uint8_t m100pg_debug_forward = 1;
+static uint8_t m100pg_debug_forward = ASRPRO_ENABLE_USART1_DEBUG;
 static uint32_t m100pg_last_upload_tick = 0;
 static uint32_t m100pg_last_heartbeat_tick = 0;
 

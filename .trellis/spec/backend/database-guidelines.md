@@ -483,3 +483,168 @@ void m100pg_task(void)
     /* 从 ring buffer 取数据，再调试转发或解析 */
 }
 ```
+
+---
+
+## Scenario: ASRPro USART1 Offline Voice Commands
+
+### 1. Scope / Trigger
+
+适用于 ASRPro / 天问离线语音模块接入 STM32 USART1，并把语音固件输出的固定文本命令映射到本地执行器。
+
+触发条件：
+- 新增或修改 `APP/asrpro.c/.h`。
+- 修改 USART1 所有权、`printf` 重定向、USART1 IRQ、语音命令字典。
+- 新增语音控制 LED、电机或其他本地执行器。
+
+### 2. Signatures
+
+ASRPro 模块公开 API：
+
+```c
+uint8_t asrpro_init(void);
+void asrpro_task(void);
+void asrpro_uart_rx_cplt_callback(UART_HandleTypeDef *huart);
+```
+
+HAL / CubeMX 用户入口：
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart);
+void USART1_IRQHandler(void);
+```
+
+编译期开关：
+
+```c
+#define ASRPRO_ENABLE_COMMAND_EXECUTION    1U
+#define ASRPRO_ENABLE_USART1_DEBUG         0U
+```
+
+硬件合同：
+
+```text
+ASRPro ASR_TX -> STM32 PA10 (USART1_RX)
+ASRPro ASR_RX -> STM32 PA9  (USART1_TX)
+USART1        -> 115200-8N1
+```
+
+命令字典：
+
+```text
+led_on          -> helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE)
+led_off         -> helmet_alarm_set_base_led(RGB_LED_COLOR_OFF)
+motor_speed_0   -> pwm_motor_set_speed(0)
+motor_speed_1   -> pwm_motor_set_speed(33)
+motor_speed_2   -> pwm_motor_set_speed(66)
+motor_speed_3   -> pwm_motor_set_speed(100)
+```
+
+### 3. Contracts
+
+- 正常固件中 USART1 是 ASRPro 专用串口，不再作为默认日志通道。
+- `ASRPRO_ENABLE_USART1_DEBUG` 默认必须为 `0U`；打开后才允许 `printf` / M100PG debug forward 向 PA9 输出。
+- `ASRPRO_ENABLE_COMMAND_EXECUTION` 默认必须为 `1U`；临时串口调试需要防误触发时可设为 `0U`。
+- USART1 采用单字节中断接收；`HAL_UART_RxCpltCallback()` 只允许把字节放入静态缓冲并重启 `HAL_UART_Receive_IT()`。
+- `HAL_UART_ErrorCallback()` 必须在 USART1 错误后重启单字节接收，避免噪声/溢出后接收链路永久停止。
+- 命令解析和执行器控制必须在 `asrpro_task()` 调度器任务中执行，不得在中断回调中调用 LED、电机、`printf` 或长阻塞 HAL。
+- 解析只接受固定小写命令；允许首尾 ASCII 空白、`\r`、`\n`，不做中文、大小写、模糊或部分匹配。
+- LED 控制必须走 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` 或写 RGB GPIO；安全报警红灯保持优先级。
+- 电机控制必须复用 `pwm_motor_set_speed()`，档位映射保持 `{0, 33, 66, 100}`，与 4G 命令模型一致。
+- 新增 `.c` 必须登记到 `APP/bsp_system.h`、`APP/scheduler.c`、`Core/Src/main.c` 和 `MDK-ARM/helmet.uvprojx`。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| ASRPro 发命令无动作 | USART1 IRQ 和接收启动 | `asrpro_init()` 已在 `MX_USART1_UART_Init()` 后调用，`USART1_IRQHandler()` 调用 `HAL_UART_IRQHandler(&huart1)` |
+| 只能收到第一条命令 | 接收重启 | `asrpro_uart_rx_cplt_callback()` 每次完成后重新调用 `HAL_UART_Receive_IT()` |
+| 串口噪声后再也收不到命令 | 错误恢复 | `HAL_UART_ErrorCallback()` 识别 USART1 并重启单字节接收 |
+| 语音模块收到大量无关文本 | USART1 调试开关 | `ASRPRO_ENABLE_USART1_DEBUG=0U`，`fputc()` 默认不向 `huart1` 发送，M100PG debug forward 默认关闭 |
+| `LED_ON` 或中文文本触发动作 | 解析过宽 | 搜索解析逻辑，必须固定小写命令匹配，无大小写转换和模糊匹配 |
+| 报警红灯被 `led_off` 关闭 | LED 绕过仲裁 | ASR 只能调用 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` / `rgb_led_set_color()` |
+| `motor_speed_4` 启动电机 | 档位边界 | 只接受单字符 `'0'..'3'`，其他命令不触发执行器 |
+| 4G 下发失效 | UART 回调混淆 | USART1 使用 `HAL_UART_RxCpltCallback()`，USART2/M100PG 继续使用 `HAL_UARTEx_RxEventCallback()` |
+
+### 5. Good/Base/Bad Cases
+
+**Good：ASR 命令行控制**
+
+```text
+USART1 RX 输入: " led_on\r\n"
+期望: 调用 helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE)，报警中仍显示红灯优先。
+```
+
+**Base：电机三档**
+
+```text
+USART1 RX 输入: "motor_speed_3\n"
+期望: 调用 pwm_motor_set_speed(100)。
+```
+
+**Base：临时调试**
+
+```text
+ASRPRO_ENABLE_COMMAND_EXECUTION=0U
+ASRPRO_ENABLE_USART1_DEBUG=1U
+期望: USART1 可恢复 printf 调试，输入 motor_speed_3 不启动电机。
+```
+
+**Bad：中断内执行命令**
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        pwm_motor_set_speed(100U);
+        printf("voice ok\r\n");
+    }
+}
+```
+
+**Bad：绕过安全报警**
+
+```c
+if (memcmp(cmd, "led_off", 7U) == 0) {
+    rgb_led_off();
+}
+```
+
+### 6. Tests Required
+
+- `git diff --check` 通过；新增 `APP/asrpro.h` 含 `ASRPRO_H` include guard。
+- 搜索 `APP/asrpro.c` 不得命中 `printf`、`HAL_Delay`、`HAL_MAX_DELAY`、`malloc`、`free`。
+- 搜索 UART 回调：`HAL_UART_RxCpltCallback` 只负责 USART1 ASRPro，`HAL_UARTEx_RxEventCallback` 仍只分发 USART2 M100PG。
+- Keil Build 通过，`APP/asrpro.c` 已加入 `MDK-ARM/helmet.uvprojx`。
+- 实机或串口助手向 PA10 注入 `led_on\n`、`led_off\r\n`、` motor_speed_3 \n`，确认 LED 基础状态和电机档位变化。
+- 注入 `LED_ON\n`、`motor_speed_4\n`、`motor_speed_33\n`、中文文本，确认无执行器动作。
+- 报警状态下发送 `led_off\n`，确认红灯报警输出不被关闭。
+- 默认 `ASRPRO_ENABLE_USART1_DEBUG=0U` 时，确认 PA9 不输出启动日志；临时打开后确认 USART1 调试输出恢复。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        parse_and_execute(asr_byte);   /* 中断中解析和控制执行器 */
+    }
+}
+```
+
+#### Correct
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    asrpro_uart_rx_cplt_callback(huart);
+}
+
+void asrpro_task(void)
+{
+    /* 从静态缓冲取完整行，裁剪 CR/LF/首尾空白，再执行固定命令 */
+}
+```

@@ -12,6 +12,7 @@ typedef struct {
 /* 静态调度器任务列表，每个任务包括任务函数、执行周期（ms）、上次执行时间（ms） */
 static task_t scheduler_task[] = {
     {m100pg_task, 10, 0},        // M100PG 上传和串口转发任务，每 10 ms 执行一次
+    {asrpro_task, 10, 0},        // ASRPro 语音命令消费任务，每 10 ms 执行一次
     {mq2_task, 100, 0},
     {dht11_task, 1000, 0},
     {mpu6050_task, 10, 0},
