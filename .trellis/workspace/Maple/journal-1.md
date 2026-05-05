@@ -625,3 +625,41 @@ Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: MPU6050倒地与碰撞报警
+
+**Date**: 2026-05-05
+**Task**: MPU6050倒地与碰撞报警
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+实现 MPU6050 事故级倒地和激烈碰撞报警：倒地采用低重力/冲击事件后稳定倾斜姿态确认，碰撞采用独立尖峰检测并短保持；两类报警可同时存在。新增本地 helmet_alarm 模块，报警后 RGB 红灯快闪并至少展示 15s，云端 LED 基础颜色通过 helmet_alarm_set_base_led() 仲裁恢复。
+
+同步 LCD 第 6 行报警状态显示、M100PG telemetry 的 fall/collision 字段、Keil 工程文件、README/CLAUDE，以及 backend 规格中的 MPU6050 Safety Alarm Fanout 合同。rgb_led_color_t 保持由 rgb_led.h 定义，rgb_led.h 自包含，helmet_alarm.h 通过 bsp_system.h 聚合头使用该类型。
+
+验证：git diff --check 通过；本轮文本文件 UTF-8 无 BOM + LF 检查通过；APP 头文件守卫通过；新增高频路径无 printf/HAL_MAX_DELAY/0xFFFFFF；RGB 直接写入路径仅保留 rgb_led.c 与 helmet_alarm.c。cppcheck 本机不可用，Keil Build 由用户本地验证。提交后仅剩 MDK-ARM/helmet/helmet.hex 构建产物未提交。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a17cad` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
