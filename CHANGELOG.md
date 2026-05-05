@@ -16,7 +16,7 @@
 
 - 新增 ASRPro 天问离线语音模块，USART1 单字节中断 + 行缓冲解析 `led_on` / `led_off` / `motor_speed_0..3` ([62a2c3b](https://github.com/rsecss/helmet/commit/62a2c3b))
 - 新增 `helmet_alarm` 安全报警仲裁模块，MPU6050 跌倒 / 激烈碰撞确认后 RGB 红灯抢占快闪 ≥ 15 s，云端 / 语音 LED 颜色暂存待解除 ([1a17cad](https://github.com/rsecss/helmet/commit/1a17cad))
-- 新增 ST7735 1.8" 彩色 LCD 模块（PB0/PA7/PB1 软件 SPI）+ `lcd_app` 6 行脏刷新 HUD 应用 ([e0e65b2](https://github.com/rsecss/helmet/commit/e0e65b2), [e7cef16](https://github.com/rsecss/helmet/commit/e7cef16))
+- 新增 ST7735 1.44" RGB TFT 模块（128×128，PB0/PA7/PB1 软件 SPI）+ `lcd_app` 6 行脏刷新 HUD 应用 ([e0e65b2](https://github.com/rsecss/helmet/commit/e0e65b2), [e7cef16](https://github.com/rsecss/helmet/commit/e7cef16))
 - 新增 TB6612FNG A 通道 `pwm_motor` 电机驱动，TIM3_CH1 PWM 调速 / 转向 / 安全停止 ([3b935b3](https://github.com/rsecss/helmet/commit/3b935b3))
 - 新增 CHANGELOG.md 与 Release PR 工作流，发版主体由人工提炼，cliff 自动生成附录
 
