@@ -3,7 +3,7 @@
   "name": "asrpro-voice-control",
   "title": "brainstorm: ASRPro voice module controls LED and motor",
   "description": "",
-  "status": "done",
+  "status": "completed",
   "dev_type": "backend",
   "scope": null,
   "package": null,
