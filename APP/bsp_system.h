@@ -29,6 +29,7 @@ extern "C" {
 #include "m100pg.h"                     // M100PG 4G 联网模块
 #include "m100pg_bsp.h"                 // M100PG 协议库 ↔ 板级硬件桥接
 #include "rgb_led.h"                    // 三色 LED 模块
+#include "helmet_alarm.h"               // 本地安全报警输出仲裁
 #include "pwm_motor.h"                  // PWM 电机驱动模块
 #include "st7735.h"                     // ST7735 彩色显示屏模块
 #include "lcd_app.h"                    // LCD 传感器数据显示页面

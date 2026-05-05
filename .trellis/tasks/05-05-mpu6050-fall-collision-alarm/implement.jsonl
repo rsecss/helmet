@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "APP module boundaries and scheduler task patterns"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Runtime sensor state and event flag sharing rules"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Avoid blocking printf in high-frequency MPU6050 task"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP firmware quality gate and coding style"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Safety event local degradation and sensor failure behavior"}

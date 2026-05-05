@@ -28,7 +28,7 @@ helmet.ioc      CubeMX 工程配置文件
 
 `main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2, TIM3) → ADC DMA 启动 → rgb_led_init（三色 LED 默认关闭） → pwm_motor_init（TB6612FNG 默认安全停止） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → st7735_init（PB0/PB1/PA7 软件 SPI，自检色块） → lcd_app_init（传感器数据显示页面） → m100pg_init（USART2 空闲 DMA 接收） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
-M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须调用 `rgb_led_*` 公开接口，不得直接写 PB12/PB13/PB14。
+M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须通过 `helmet_alarm_set_base_led()` 更新普通 LED 状态，不得直接写 PB12/PB13/PB14。上传 telemetry 包含 MPU6050 的 `fall` / `collision` 报警状态；`APP/helmet_alarm.c` 以 20ms 周期读取报警状态，报警后 RGB 红灯至少快闪 15s，解除后恢复云端下发颜色。
 
 ### 任务调度器（`APP/scheduler.c`）
 

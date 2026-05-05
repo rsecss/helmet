@@ -59,13 +59,14 @@ helmet.ioc      STM32CubeMX 工程配置
 | 任务调度器 | `APP/scheduler.c` | 基于 SysTick 的毫秒级轮询协作调度 |
 | MQ2 烟雾传感器 | `APP/mq2.c` | ADC+DMA 采集，计算气体浓度（ppm），100ms 周期 |
 | DHT11 温湿度传感器 | `APP/dht11.c` | 单总线时序通信，读取温度和湿度，1000ms 周期 |
-| MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒检测，10ms 周期 |
+| MPU6050 六轴传感器 | `APP/mpu6050.c` | I2C 通信 + DMP 姿态解算（pitch/roll/yaw），跌倒确认与激烈碰撞报警，10ms 周期 |
 | MAX30102 心率血氧传感器 | `APP/max30102.c` | I2C2 通信，FIFO 轮询读取 Red/IR，PBA 心跳检测 + AC/DC 比值算 SpO2，50ms 周期 |
-| M100PG 4G DTU | `APP/m100pg.c` / `APP/m100pg_protocol.c` | USART2 DMA 空闲接收，1000ms 上传传感器帧，解析 `LED_ON/OFF/WHITE/RED/GREEN` 并可转发到 USART1 调试口 |
+| M100PG 4G DTU | `APP/m100pg.c` / `APP/m100pg_protocol.c` | USART2 DMA 空闲接收，1000ms 上传传感器帧（含 fall/collision 报警状态），解析 `LED_ON/OFF/WHITE/RED/GREEN` 并可转发到 USART1 调试口 |
 | 三色 LED | `APP/rgb_led.c` | PB12/PB13/PB14 控制共阴 RGB LED，默认关闭，供云端 LED 颜色控制 |
+| 本地安全报警 | `APP/helmet_alarm.c` | 读取 MPU6050 报警状态，报警后 RGB 红灯至少快闪 15s，解除后恢复云端下发颜色 |
 | PWM 电机驱动 | `APP/pwm_motor.c` | TIM3_CH1/PB4 控制 TB6612FNG A 通道 PWMA，公开接口提供调速、转向和停止 |
 | ST7735 彩色显示屏 | `APP/st7735.c` | GPIO 软件 SPI，PB0=SCL、PA7=SDA、PB1=DC，提供低耦合清屏、矩形填充、ASCII 字符串绘制接口 |
-| LCD 数据显示应用 | `APP/lcd_app.c` | 200ms 脏刷新 6 行传感器数据：温度、湿度、烟雾浓度、心率、血氧、姿态角 |
+| LCD 数据显示应用 | `APP/lcd_app.c` | 200ms 脏刷新 6 行传感器数据：温度、湿度、烟雾浓度、心率、血氧、姿态/报警状态 |
 | 位带操作 | `APP/sys.h` | GPIO 位带操作宏，支持单 IO 口读写 |
 
 ## 软件架构

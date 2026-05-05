@@ -1,7 +1,7 @@
 #ifndef RGB_LED_H
 #define RGB_LED_H
 
-#include "bsp_system.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

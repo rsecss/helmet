@@ -207,6 +207,90 @@ HAL_I2C_Mem_Read(&hi2cX, addr, reg, I2C_MEMADD_SIZE_8BIT,
 - 实机逐个恢复任务：`m100pg_task` + 单个传感器运行至少 10 秒，USART1 仍能看到 `[4G] task alive`，云端下发能出现 `[4G RX]`。
 - 断开或拔掉目标 I2C 传感器后，系统允许该传感器数据为 0/invalid，但 4G 上传和下发不能停止。
 
+## Scenario: MPU6050 Safety Alarm Fanout
+
+### 1. Scope / Trigger
+
+适用于 `APP/mpu6050.c` 基于姿态/加速度/角速度产生本地安全报警，并把报警状态扇出到 LCD、4G telemetry、RGB 本地输出的跨模块变更。目标是保守少误报：侧放头盔不能单独触发倒地报警，倒地和激烈碰撞必须可独立触发并可同时上报。
+
+### 2. Signatures / Payload Fields
+
+```c
+uint8_t mpu6050_is_fall_alarm(void);
+uint8_t mpu6050_is_collision_alarm(void);
+uint8_t mpu6050_get_alarm_flags(void);  /* bit0=fall, bit1=collision */
+void mpu6050_clear_alarm(void);
+
+void helmet_alarm_set_base_led(rgb_led_color_t color);
+void helmet_alarm_task(void);
+```
+
+`helmet_telemetry_t` 必须包含并上传：
+
+```c
+uint8_t fall;       /* 0/1，来自 mpu6050_is_fall_alarm() */
+uint8_t collision;  /* 0/1，来自 mpu6050_is_collision_alarm() */
+```
+
+上行 payload 字段顺序包含：
+
+```text
+pitch=%.1f,roll=%.1f,yaw=%.1f,fall=%u,collision=%u,hr=%ld,spo2=%ld
+```
+
+### 3. Contracts
+
+- `mpu6050_task()` 是报警状态唯一写者；LCD、4G、RGB 只能通过 `mpu6050_is_*()` 或 `mpu6050_get_alarm_flags()` 读取。
+- 倒地报警不得由姿态角单独触发；必须先出现低重力或冲击证据，再持续确认倾斜且低角速度的稳定姿态。
+- `collision_alarm` 与 `fall_alarm` 独立；碰撞短保持自动清除，倒地长保持后需要恢复姿态/运动稳定才自动清除。
+- 上电或 MPU6050 重新可用后的首帧 AVM 只建立基线，不参与冲击判断，避免 `0 -> 1g` 启动跳变误报。
+- `helmet_alarm_task()` 只负责本地 RGB 输出仲裁；云端 LED 下发必须调用 `helmet_alarm_set_base_led()`，不得绕过报警模块直接写 RGB。
+- 报警期间 RGB 必须红灯全亮/全灭快闪；报警解除后恢复最近一次云端基础 LED 颜色。
+- `m100pg_bsp_collect_sample()` 只读取缓存快照，不等待 MPU6050 刷新；任一报警存在时 telemetry 的 `led` 镜像可覆盖为 `red`。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| 上电静止侧放后触发 `FALL` | 首帧 AVM 基线和倒地状态机 | 首帧不参与 `avm_delta`，姿态角不能绕过运动事件直接报警 |
+| 轻微拿放或桌面侧放误报倒地 | 阈值和确认窗口 | `MPU6050_FALL_IMPACT_*`、`MPU6050_FALL_CONFIRM_MS` 保守，侧放无冲击时 LCD 仍为 `OK` |
+| 碰撞后 LCD/4G 很快看不到报警 | 碰撞保持和本地展示保持 | `collision_flag` 有短保持；RGB 至少快闪本地展示窗口 |
+| 云端 LED 下发覆盖报警闪烁 | RGB 调用路径 | `rg "rgb_led_set_|rgb_led_off\\(" APP --glob "!APP/rgb_led.c" --glob "!APP/helmet_alarm.c"` 只能命中头文件声明 |
+| 4G 上传无 `fall/collision` 字段 | telemetry 协议 | `m100pg_protocol.c` 格式串和 `helmet_telemetry_t` 字段同步，`M100PG_PROTO_TX_BUF` 足够 |
+| LCD 显示乱码或编译字符串报错 | LCD 中文标签编码 | `APP/lcd_app.c` 中文运行时字符串使用 UTF-8 hex escape |
+
+### 5. Good/Base/Bad Cases
+
+**Good：事故级倒地**
+
+```text
+直立 -> 软垫落下/冲击 -> 明显倾斜静止 >= 1.5s
+期望：fall=1, collision 可同时为 1，LCD 显示 FALL 或 FALL+HIT，RGB 红灯快闪。
+```
+
+**Base：普通侧放**
+
+```text
+手动轻放到侧面，无明显冲击
+期望：fall=0, collision=0，LCD 显示 OK，云端 fall=0,collision=0。
+```
+
+**Bad：姿态角直接报警**
+
+```c
+fall_flag = ((fabs(pitch) > 60) || (fabs(roll) > 60));
+```
+
+该写法会把侧放头盔误判为倒地，禁止恢复。
+
+### 6. Tests Required
+
+- Keil Build 通过，`APP/helmet_alarm.c` 已加入 `MDK-ARM/helmet.uvprojx`。
+- `git diff --check` 通过；本轮触及 `APP/*.h` 有 include guard；本轮触及源码 UTF-8 无 BOM 且 LF。
+- `rg "HAL_MAX_DELAY|0xFFFFFF|printf" APP/mpu6050.c APP/helmet_alarm.c APP/helmet_alarm.h APP/lcd_app.c` 不得命中新增高频阻塞或打印；`snprintf` 命中可接受。
+- 台架测试普通侧放、轻拿轻放、软垫碰撞、软垫倒地、倒地恢复、`FALL+HIT` 同时报警。
+- 4G telemetry 至少观察一帧包含 `fall=0/1,collision=0/1`；报警时本地 RGB 快闪不影响云端下发基础颜色恢复。
+
 ### 7. Wrong vs Correct
 
 #### Wrong

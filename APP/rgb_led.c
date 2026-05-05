@@ -1,4 +1,5 @@
 #include "rgb_led.h"
+#include "bsp_system.h"
 
 #define RGB_LED_R_GPIO_PORT    GPIOB
 #define RGB_LED_R_PIN          GPIO_PIN_12

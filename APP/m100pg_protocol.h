@@ -9,7 +9,7 @@
  *   - Uplink (device -> browser): a single comma-separated key=value line:
  *
  *       temp=23,hum=60,mq2=120,pitch=1.2,roll=-0.5,yaw=180.0,
- *       hr=72,spo2=98,led=white,motor=2\n
+ *       fall=0,collision=0,hr=72,spo2=98,led=white,motor=2\n
  *
  *   - Downlink dictionary (browser -> device):
  *       led_on              -> led_set(WHITE)
@@ -50,7 +50,7 @@ extern "C" {
 #endif
 
 #ifndef M100PG_PROTO_TX_BUF
-#define M100PG_PROTO_TX_BUF 192u   /* longest produced uplink line   */
+#define M100PG_PROTO_TX_BUF 224u   /* longest produced uplink line   */
 #endif
 
 /* ---------- LED state (mirrors a subset of rgb_led_color_t) --------- */
@@ -68,6 +68,7 @@ typedef enum {
  *   temp/hum  -> dht11_get_temperature/humidity (uint8_t)
  *   mq2       -> rounded mq2_get_ppm()          (uint32_t)
  *   pitch...  -> mpu6050 dmp globals            (float)
+ *   fall/collision -> mpu6050 alarm getters      (uint8_t)
  *   hr/spo2   -> max30102 globals               (int32_t)
  *
  * led/motor are *mirror* fields. The library populates them from the
@@ -84,6 +85,8 @@ typedef struct {
     float    pitch;
     float    roll;
     float    yaw;
+    uint8_t  fall;
+    uint8_t  collision;
     /* vital (0 when invalid) */
     int32_t  hr;
     int32_t  spo2;

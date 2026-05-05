@@ -143,6 +143,14 @@ void lcd_app_task(void)
     }
     lcd_app_draw_line(4U, line);
 
-    (void)snprintf(line, sizeof(line), "\xE5\xA7\xBF\xE6\x80\x81:%.0f,%.0f,%.0f", pitch, roll, yaw);
+    if ((mpu6050_is_fall_alarm() != 0U) && (mpu6050_is_collision_alarm() != 0U)) {
+        (void)snprintf(line, sizeof(line), "\xE5\xA7\xBF\xE6\x80\x81:FALL+HIT");
+    } else if (mpu6050_is_fall_alarm() != 0U) {
+        (void)snprintf(line, sizeof(line), "\xE5\xA7\xBF\xE6\x80\x81:FALL");
+    } else if (mpu6050_is_collision_alarm() != 0U) {
+        (void)snprintf(line, sizeof(line), "\xE5\xA7\xBF\xE6\x80\x81:HIT");
+    } else {
+        (void)snprintf(line, sizeof(line), "\xE5\xA7\xBF\xE6\x80\x81:OK");
+    }
     lcd_app_draw_line(5U, line);
 }

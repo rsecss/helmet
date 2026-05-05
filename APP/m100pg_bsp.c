@@ -1,6 +1,7 @@
 #include "m100pg_bsp.h"
 #include "m100pg.h"
 #include "rgb_led.h"
+#include "helmet_alarm.h"
 #include "pwm_motor.h"
 #include "dht11.h"
 #include "mq2.h"
@@ -16,11 +17,11 @@ static void bsp_led_set(helmet_led_state_t state, void *user)
 {
     (void)user;
     switch (state) {
-        case HELMET_LED_WHITE: rgb_led_set_white(); break;
-        case HELMET_LED_RED:   rgb_led_set_red();   break;
-        case HELMET_LED_GREEN: rgb_led_set_green(); break;
+        case HELMET_LED_WHITE: helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE); break;
+        case HELMET_LED_RED:   helmet_alarm_set_base_led(RGB_LED_COLOR_RED);   break;
+        case HELMET_LED_GREEN: helmet_alarm_set_base_led(RGB_LED_COLOR_GREEN); break;
         case HELMET_LED_OFF:
-        default:               rgb_led_off();       break;
+        default:               helmet_alarm_set_base_led(RGB_LED_COLOR_OFF);   break;
     }
 }
 
@@ -53,9 +54,15 @@ static void bsp_collect_sample(helmet_telemetry_t *out, void *user)
     out->pitch = pitch;
     out->roll  = roll;
     out->yaw   = yaw;
+    out->fall = mpu6050_is_fall_alarm();
+    out->collision = mpu6050_is_collision_alarm();
 
     out->hr   = (hr_valid   != 0U) ? heart_rate : 0;
     out->spo2 = (spo2_valid != 0U) ? spo2       : 0;
+
+    if (mpu6050_get_alarm_flags() != 0U) {
+        out->led = HELMET_LED_RED;
+    }
 
     /* led / motor 由协议库预填 intent；此处不覆盖。 */
 }

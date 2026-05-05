@@ -185,6 +185,7 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
     int  n = snprintf(buf, sizeof buf,
                       "temp=%u,hum=%u,mq2=%lu,"
                       "pitch=%.1f,roll=%.1f,yaw=%.1f,"
+                      "fall=%u,collision=%u,"
                       "hr=%ld,spo2=%ld,"
                       "led=%s,motor=%u\n",
                       (unsigned)t.temp,
@@ -193,6 +194,8 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
                       (double)t.pitch,
                       (double)t.roll,
                       (double)t.yaw,
+                      (unsigned)t.fall,
+                      (unsigned)t.collision,
                       (long)t.hr,
                       (long)t.spo2,
                       led_state_to_string(t.led),

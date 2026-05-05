@@ -1119,6 +1119,16 @@
               <FilePath>..\APP\rgb_led.h</FilePath>
             </File>
             <File>
+              <FileName>helmet_alarm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\helmet_alarm.c</FilePath>
+            </File>
+            <File>
+              <FileName>helmet_alarm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\helmet_alarm.h</FilePath>
+            </File>
+            <File>
               <FileName>st7735.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\st7735.c</FilePath>
