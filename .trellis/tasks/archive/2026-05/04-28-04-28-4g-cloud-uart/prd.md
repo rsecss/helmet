@@ -69,10 +69,10 @@
 - [x] 合法下发命令能被解析并控制 LED 状态。
 - [x] `LED_ON`、`LED_OFF` 能分别打开白色 LED 和关闭 LED。
 - [x] `LED_WHITE`、`LED_RED`、`LED_GREEN` 能分别切换三色 LED 颜色。
-- [ ] 非法/不完整数据不会误触发控制动作。
+- [x] 非法/不完整数据不会误触发控制动作。
 - [x] 上传/解析接口可被调度器或主循环稳定调用。
 - [x] USART2 空闲中断 DMA 接收能连续多次触发，不能只收到第一帧。
-- [ ] RingBuffer 溢出时不阻塞中断，不解析半截脏数据。
+- [x] RingBuffer 溢出时不阻塞中断，不解析半截脏数据。
 - [x] 上电后实机 LED 默认状态、Web 默认指令状态、上传帧 `led` 字段三者一致。
 
 ## Manual Verification
@@ -81,6 +81,7 @@
 - 2026-05-05：实机测试确认 4G 模块使用 WebSocket 客户端透传模式连接 `websocket.vaple.cc`，Web 端可收到 STM32 上发数据，Web 端下发数据也能到达设备链路。
 - 2026-05-05：实机联调确认多路传感器上传和 Web 端 LED 控制均正常；发现上电云端默认/日志为 `led_off`，但实机 LED 默认点亮。
 - 2026-05-05：修改 RGB LED 上电默认关闭后，重新上电复位并联合调试成功；多路传感器通过 4G 上传到 Web 正常，Web 端下发 `led_on` / `led_off` 可正常控制 LED，上传帧 LED 状态与实物一致。先前“下发不起作用、日志一直 `led=off`”由未上电复位导致。
+- 2026-05-05：归档前代码复核确认两项防御逻辑已实现（`m100pg_protocol.c:dispatch_line()` 严格 `memcmp` 等长匹配 + 未知命令走 `on_unknown` 不触发控制；`m100pg.c:m100pg_ring_write()` 满则置 `rx_overflow` 并 break，不阻塞中断，`m100pg_proto_feed()` 溢出跳至下一 `\n` 丢弃半截数据）。本次未做专项的非法命令注入和强制 RingBuffer 溢出压测，按代码层防御视为达成；如后续接入语音模块或扩大命令字典，需补回归测试。
 
 ## Definition of Done (team quality bar)
 
