@@ -86,7 +86,7 @@
 | 心率血氧 | MAX30102 | I2C2 400 kHz | PB10 (SCL) / PB11 (SDA) |
 | 温湿度 | DHT11 | 单总线 | PA8 |
 | 烟雾 | MQ2 | ADC1 + DMA | PA0 |
-| 显示 | ST7735 1.8" TFT | 软件 SPI | PB0 (SCL) / PA7 (SDA) / PB1 (DC) |
+| 显示 | ST7735 1.44" RGB TFT (128×128) | 软件 SPI | PB0 (SCL) / PA7 (SDA) / PB1 (DC) |
 | 电机 | TB6612FNG + 5V 风扇 | TIM3_CH1 PWM | PB4 + PA11 / PA12 / PB15 |
 | RGB LED | 共阴三色 | GPIO | PB12 (R) / PB13 (G) / PB14 (B) |
 | 4G DTU | M100PG | USART2 DMA | PA2 (TX) / PA3 (RX), 115200-8N1 |
