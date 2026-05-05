@@ -4,7 +4,7 @@
   "title": "brainstorm: 4G 联网模块上云与串口转发",
   "description": "",
   "status": "planning",
-  "dev_type": null,
+  "dev_type": "backend",
   "scope": null,
   "package": null,
   "priority": "P2",

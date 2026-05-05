@@ -1,11 +1,10 @@
 #include "m100pg.h"
-#include "m100pg_protocol.h"
+#include "m100pg_bsp.h"
 #include "usart.h"
 
 #define M100PG_RX_DMA_BUFFER_SIZE   128U
 #define M100PG_RX_RING_SIZE         512U
 #define M100PG_FORWARD_CHUNK_SIZE   128U
-#define M100PG_TX_BUFFER_SIZE       256U
 #define M100PG_UART_TIMEOUT_MS      100U
 #define M100PG_UPLOAD_PERIOD_MS     1000U
 #define M100PG_TASK_HEARTBEAT_MS    3000U
@@ -15,7 +14,6 @@ extern DMA_HandleTypeDef hdma_usart2_rx;
 static uint8_t m100pg_rx_dma_buffer[M100PG_RX_DMA_BUFFER_SIZE];
 static uint8_t m100pg_rx_ring[M100PG_RX_RING_SIZE];
 static uint8_t m100pg_forward_buffer[M100PG_FORWARD_CHUNK_SIZE];
-static char m100pg_tx_buffer[M100PG_TX_BUFFER_SIZE];
 static volatile uint16_t m100pg_rx_head = 0;
 static volatile uint16_t m100pg_rx_tail = 0;
 static volatile uint16_t m100pg_rx_count = 0;
@@ -109,107 +107,12 @@ static void m100pg_debug_write(const char *prefix, const uint8_t *data, uint16_t
     printf("\r\n");
 }
 
-/**
- * @brief       获取上传帧需要的传感器快照
- * @param       data 上传数据输出
- * @retval      无
- */
-static void m100pg_collect_upload_data(m100pg_upload_data_t *data)
-{
-    float mq2_ppm;
-
-    if (data == NULL)
-        return;
-
-    memset(data, 0, sizeof(*data));
-
-    if (dht11_is_valid() != 0U) {
-        data->temp = dht11_get_temperature();
-        data->hum = dht11_get_humidity();
-    }
-
-    mq2_ppm = mq2_get_ppm();
-    data->mq2 = (mq2_ppm > 0.0f) ? (uint32_t)(mq2_ppm + 0.5f) : 0UL;
-    data->pitch = pitch;
-    data->roll = roll;
-    data->yaw = yaw;
-    data->hr = (hr_valid != 0U) ? heart_rate : 0;
-    data->spo2 = (spo2_valid != 0U) ? spo2 : 0;
-    data->led = rgb_led_get_enabled();
-}
-
-/**
- * @brief       按协议处理云端下发命令
- * @param       data 下发数据
- * @param       len 数据长度
- * @retval      无
- */
-static uint8_t m100pg_handle_downlink_frame(const uint8_t *data, uint16_t len)
-{
-    m100pg_downlink_cmd_t cmd;
-
-    if (m100pg_protocol_parse_downlink(data, len, &cmd) == 0U)
-        return 0;
-
-    switch (cmd) {
-        case M100PG_DOWNLINK_CMD_LED_ON:
-        case M100PG_DOWNLINK_CMD_LED_WHITE:
-            rgb_led_set_white();
-            if (m100pg_debug_forward != 0U)
-                printf("[4G] led=white\r\n");
-            break;
-        case M100PG_DOWNLINK_CMD_LED_OFF:
-            rgb_led_off();
-            if (m100pg_debug_forward != 0U)
-                printf("[4G] led=off\r\n");
-            break;
-        case M100PG_DOWNLINK_CMD_LED_RED:
-            rgb_led_set_red();
-            if (m100pg_debug_forward != 0U)
-                printf("[4G] led=red\r\n");
-            break;
-        case M100PG_DOWNLINK_CMD_LED_GREEN:
-            rgb_led_set_green();
-            if (m100pg_debug_forward != 0U)
-                printf("[4G] led=green\r\n");
-            break;
-        default:
-            break;
-    }
-
-    return 1;
-}
-
-/**
- * @brief       按行扫描并处理云端下发命令
- * @param       data 下发数据
- * @param       len 数据长度
- * @retval      无
- */
-static void m100pg_handle_downlink(const uint8_t *data, uint16_t len)
-{
-    uint16_t start = 0;
-    uint8_t matched = 0;
-
-    for (uint16_t i = 0; i < len; i++) {
-        if ((data[i] == '\r') || (data[i] == '\n')) {
-            if (i > start)
-                matched |= m100pg_handle_downlink_frame(&data[start], (uint16_t)(i - start));
-            start = (uint16_t)(i + 1U);
-        }
-    }
-
-    if (start < len)
-        matched |= m100pg_handle_downlink_frame(&data[start], (uint16_t)(len - start));
-
-    if ((matched == 0U) && (m100pg_debug_forward != 0U))
-        printf("[4G] downlink ignored\r\n");
-}
-
 uint8_t m100pg_init(void)
 {
     m100pg_ring_clear();
     memset(m100pg_rx_dma_buffer, 0, sizeof(m100pg_rx_dma_buffer));
+
+    m100pg_bsp_init();
 
     if (HAL_UARTEx_ReceiveToIdle_DMA(&huart2, m100pg_rx_dma_buffer,
                                      sizeof(m100pg_rx_dma_buffer)) != HAL_OK) {
@@ -238,19 +141,6 @@ uint8_t m100pg_send_bytes(const uint8_t *data, uint16_t len)
 
     m100pg_debug_write("[4G TX]", data, len);
     return 0;
-}
-
-uint8_t m100pg_upload_sensor_data(void)
-{
-    m100pg_upload_data_t data;
-    uint16_t len;
-
-    m100pg_collect_upload_data(&data);
-    len = m100pg_protocol_build_upload(m100pg_tx_buffer, sizeof(m100pg_tx_buffer), &data);
-    if (len == 0U)
-        return 1;
-
-    return m100pg_send_bytes((uint8_t *)m100pg_tx_buffer, len);
 }
 
 void m100pg_rx_event_callback(UART_HandleTypeDef *huart, uint16_t size)
@@ -290,7 +180,7 @@ void m100pg_task(void)
 
     if ((uint32_t)(now - m100pg_last_upload_tick) >= M100PG_UPLOAD_PERIOD_MS) {
         m100pg_last_upload_tick = now;
-        (void)m100pg_upload_sensor_data();
+        m100pg_bsp_publish_task();
     }
 
     if ((m100pg_debug_forward != 0U) && (overflow != 0U))
@@ -306,7 +196,7 @@ void m100pg_task(void)
         printf("\r\n");
     }
 
-    m100pg_handle_downlink(m100pg_forward_buffer, len);
+    m100pg_proto_feed(&g_m100pg_proto, m100pg_forward_buffer, len);
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)

@@ -104,8 +104,8 @@ int main(void)
 
   printf("[BOOT] smarthelm app start\r\n");
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dma_buff[0], 30); // 启动 ADC1 的 DMA 模式，将采集到的 30 个数据存储到 dma_buff 数组中
-  rgb_led_init();    // 三色 LED 初始化，默认白色
-  printf("[RGB] init white\r\n");
+  rgb_led_init();    // 三色 LED 初始化，默认关闭
+  printf("[RGB] init off\r\n");
   init_result = pwm_motor_init();       // PWM 电机驱动初始化，默认安全停止
   printf("[PWM_MOTOR] init=%u\r\n", init_result);
   init_result = DHT11_Init();       // DHT11 温湿度传感器初始化

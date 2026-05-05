@@ -27,10 +27,11 @@ extern "C" {
 #include "max30102.h"                   // MAX30102 心率血氧传感器模块
 #include "m100pg_protocol.h"            // M100PG 上下行协议模块
 #include "m100pg.h"                     // M100PG 4G 联网模块
+#include "m100pg_bsp.h"                 // M100PG 协议库 ↔ 板级硬件桥接
 #include "rgb_led.h"                    // 三色 LED 模块
 #include "pwm_motor.h"                  // PWM 电机驱动模块
 #include "st7735.h"                     // ST7735 彩色显示屏模块
-#include "lcd_app.h"                    // LCD 传感器数据显示应用
+#include "lcd_app.h"                    // LCD 传感器数据显示页面
 #include "scheduler.h"
 
 /* MPU6050 相关库 */

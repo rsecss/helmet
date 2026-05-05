@@ -156,7 +156,7 @@ uint8_t rgb_led_get_enabled(void)
 void rgb_led_init(void)
 {
     rgb_led_gpio_init();
-    rgb_led_set_white();
+    rgb_led_off();
 }
 
 /**

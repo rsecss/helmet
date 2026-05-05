@@ -8,13 +8,13 @@ extern "C" {
 #endif
 
 /**
- * @brief       初始化 USART2 空闲 DMA 接收
+ * @brief       初始化 USART2 空闲 DMA 接收 + 协议库实例
  * @retval      0 成功，非 0 失败
  */
 uint8_t m100pg_init(void);
 
 /**
- * @brief       调度器任务：消费 USART2 接收缓存并转发到调试口
+ * @brief       调度器任务：消费 USART2 接收缓存，按 1Hz 触发上行
  * @param       无
  * @retval      无
  */
@@ -29,17 +29,12 @@ void m100pg_set_debug_forward(uint8_t enabled);
 
 /**
  * @brief       通过 USART2 向 4G 模块发送原始数据
+ *              （协议库 send_frame 回调最终落到这里）
  * @param       data 数据指针
  * @param       len 数据长度
  * @retval      0 成功，非 0 失败
  */
 uint8_t m100pg_send_bytes(const uint8_t *data, uint16_t len);
-
-/**
- * @brief       上传最近一次传感器数据快照
- * @retval      0 成功，非 0 失败
- */
-uint8_t m100pg_upload_sensor_data(void);
 
 /**
  * @brief       USART 空闲接收回调入口，仅处理 USART2

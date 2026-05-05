@@ -286,6 +286,7 @@ USART1 PA9/PA10       -> USB-TTL 调试口
 - `m100pg_rx_event_callback()` 只处理 `USART2`，中断路径只允许：停止 DMA、裁剪 `size`、写 ring buffer、记录计数、清 DMA 临时缓冲、重启 DMA。
 - `m100pg_task()` 才能打印、转发、解析；关闭 `debug_forward` 后，上行发送和下行接收仍应工作。
 - `m100pg_send_bytes()` 只能证明 STM32 已把字节送到 USART2 TX，不等价于云端已收到。
+- 上电默认执行器状态必须与协议镜像默认值和 Web 默认状态一致。当前合同是 `APP/rgb_led.c::rgb_led_init()` 默认关闭，`APP/m100pg_protocol.c::m100pg_proto_init()` 默认 `mirror_led = HELMET_LED_OFF`，Web 默认/首帧上传显示 `led=off`。
 
 ### 4. Validation & Error Matrix
 
@@ -298,6 +299,7 @@ USART1 PA9/PA10       -> USB-TTL 调试口
 | 云端下发，USART1 无 `[4G RX]` | 下行物理链路，不要先改协议解析或 LED 逻辑 | 先用 PA2->PA3 自环证明 STM32 USART2 RX/DMA 正常，再验证 DTU TXD->PA3、共地、云端确实下发、DTU 处于透传输出状态 |
 | 自环有 `[4G RX]`，接 DTU 无 `[4G RX]` | DTU 下行链路 | DTU TXD 电平、TX/RX 是否交叉、云平台是否把命令发到设备下行、DTU 是否在线且未只开上行 |
 | 有 `[4G RX]` 但 LED 命令无动作 | 协议内容 | USART1 原文是否完整等于 `LED_OFF` / `LED_ON` 等命令；若输出 `downlink ignored`，先修云端 payload 格式 |
+| 上传帧一直 `led=off`，但实机上电 LED 亮 | 默认态不同步或未复位烧录 | 断电重启或按复位键后确认 `[RGB] init off`；检查 `rgb_led_init()`、`m100pg_proto_init()`、Web 默认状态三者一致 |
 | 只收到第一帧 | DMA 重启 | RxEvent 后必须重新调用 `HAL_UARTEx_ReceiveToIdle_DMA()` |
 | 数据偶发截断 | ring buffer 容量/消费周期 | 中断侧不阻塞，任务侧短周期消费，溢出需有可观测标志 |
 | DTU 单独接 USB-TTL 正常，接 STM32 不正常 | STM32 侧 RX/TX/GND | 用 PA2->PA3 自环验证 STM32 USART2 DMA，再接 DTU |
@@ -343,6 +345,22 @@ UP,test=hello
 
 这只能说明 STM32 调用了发送接口，不能证明 DTU 已收到，更不能证明云端已收到。
 
+**Good：默认态一致**
+
+```text
+上电/复位 -> [RGB] init off -> 首帧 telemetry led=off
+Web 下发 led_on  -> LED 白色点亮，后续 telemetry led=white
+Web 下发 led_off -> LED 熄灭，后续 telemetry led=off
+```
+
+**Bad：默认态分裂**
+
+```text
+rgb_led_init() 点亮白色，但 m100pg_proto_init() 的 mirror_led=HELMET_LED_OFF
+```
+
+这会导致实物 LED 亮而 Web/串口上传持续显示 `led=off`，演示和调试都会被误导。
+
 ### 6. Tests Required
 
 - 上电后 USART1 看到 `[4G] usart2 rx dma ready`。
@@ -352,6 +370,7 @@ UP,test=hello
 - DTU 上行测试：串口助手触发发送 `UP,test=hello`，云端必须收到。
 - DTU 下行测试：云端下发文本，USART1 必须出现 `[4G RX]` 和原文。
 - LED 下发测试只能在 `[4G RX]` 已出现后执行；否则不得判断 `LED_OFF` 或 RGB GPIO 有问题。
+- 上电默认态测试：烧录后必须断电重启或按复位键，USART1 看到 `[RGB] init off`，实机 LED 默认关闭，首帧上传 `led=off`。
 - 连续下发 5 次，`events` 递增，不能只收到第一帧。
 - 关闭 `debug_forward` 后，USART1 不输出，但上行发送和下行 ring buffer 消费不能被破坏。
 
