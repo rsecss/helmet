@@ -534,12 +534,6 @@
 
 ### Summary
 
-(Add summary)
-
-### Main Changes
-
-### Summary
-
 Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/Keil encoding lessons learned.
 
 ### Main Changes
@@ -559,22 +553,6 @@ Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/
 - [OK] LCD text/font files contain no known mojibake markers checked during review.
 - [OK] APP header guards passed for touched headers.
 - [WARN] Local `cppcheck` command is not installed, so full static analysis was not run locally.
-
-### Status
-
-[OK] **Completed**
-
-
-### Git Commits
-
-| Hash | Message |
-|------|---------|
-| `e7cef16` | (see git log) |
-| `888eba3` | (see git log) |
-
-### Testing
-
-- [OK] (Add test results)
 
 ### Status
 
