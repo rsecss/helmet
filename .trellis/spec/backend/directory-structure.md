@@ -158,13 +158,18 @@ Use this contract when adding or modifying a small ST7735/ST7735S RGB TFT displa
 
 ```c
 uint8_t st7735_init(void);
-void st7735_task(void);
 uint8_t st7735_clear(void);
 uint8_t st7735_fill_screen(uint16_t color);
 uint8_t st7735_fill_rect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint16_t color);
 uint8_t st7735_draw_string(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color);
-uint8_t st7735_show_dht11_status(void);
 uint8_t st7735_is_ready(void);
+```
+
+Sensor-specific display logic belongs in `APP/lcd_app.h` / `APP/lcd_app.c`:
+
+```c
+void lcd_app_init(void);
+void lcd_app_task(void);
 ```
 
 Current board mapping in `APP/st7735.c`:
@@ -187,8 +192,10 @@ Current board mapping in `APP/st7735.c`:
 
 - `CS`, `RES/RST`, and `BLK` are not firmware-controlled in the current wiring. If the panel stays white or does not receive commands, first wire `CS` to `GND` and `RES/RST` to `3.3V`; if the backlight is dark, wire `BLK` to `3.3V`.
 - The public header must not expose GPIO ports, pins, ST7735 command bytes, MADCTL values, offsets, or font table internals.
-- `APP/st7735.c` owns all display drawing and hardware bit-banging. Other modules call public `st7735_*` APIs and must not write the display GPIO directly.
-- `st7735_init()` may run a visible hardware bring-up self-test, but `st7735_task()` must return quickly and only redraw dirty text regions.
+- `APP/st7735.c` owns all display drawing and hardware bit-banging. It must not read DHT11/MQ2/MAX30102/MPU6050 data or own scheduler display policy.
+- `APP/lcd_app.c` owns the concrete SmartHelm sensor status page. It may read sensor module public getters or documented exported sensor values, then call `st7735_*` drawing APIs.
+- Other modules call public `st7735_*` or `lcd_app_*` APIs and must not write the display GPIO directly.
+- `st7735_init()` may run a visible hardware bring-up self-test. Runtime sensor page refresh belongs in `lcd_app_task()`, which must return quickly and only redraw dirty text regions.
 - The display path must not allocate a full-screen RGB565 framebuffer. Use direct/windowed writes such as `st7735_set_address_window()` plus bounded pixel loops.
 - The current status page uses ASCII `asc2_1206`. This font table's pixel bits are read low-bit first with `(0x01U << col)`, not high-bit first, otherwise characters display mirrored.
 - This write-only bus cannot verify real panel presence. Treat `[ST7735] init=0` plus visible color blocks/text as the practical bring-up gate.
@@ -202,24 +209,26 @@ Current board mapping in `APP/st7735.c`:
 | Side or bottom has colored noise | `ST7735_X_OFFSET`, `ST7735_Y_OFFSET` | Tune offsets at the module top and verify black clear reaches visible edges |
 | Whole screen direction is upside down | `ST7735_MADCTL_VALUE` | Try only MADCTL values before changing font drawing or coordinates |
 | Individual characters are mirrored | font bit order | For `asc2_1206`, read bits as `(0x01U << col)` and verify `Temp` / `Humi` render normally |
-| DHT11 init fails | DHT11 hardware path | Display should show `Temp:--C` / `Humi:--%`; this is not an ST7735 failure |
-| 4G downlink becomes unresponsive | display task too heavy | Ensure `st7735_task()` dirty-checks values and does not full-screen redraw every 200ms |
+| DHT11 init fails | DHT11 hardware path | `lcd_app_task()` should show `Temp:--C` / `Humi:--%`; this is not an ST7735 failure |
+| 4G downlink becomes unresponsive | display task too heavy | Ensure `lcd_app_task()` dirty-checks values and does not full-screen redraw every 200ms |
 
 ### 5. Good/Base/Bad Cases
 
-**Good**: `st7735_task()` compares cached DHT11 value/valid state, redraws only changed `Temp` / `Humi` lines, and exits immediately when unchanged.
+**Good**: `lcd_app_task()` compares cached rendered lines, redraws only changed sensor lines, and exits quickly when unchanged. `APP/st7735.c` remains a reusable drawing module.
 
 **Base**: `st7735_init()` sends the ST7735 command sequence, clears black, shows red/green/blue/white blocks, displays `ST7735 OK`, then clears before showing the runtime page.
 
-**Bad**: A scheduler task clears and redraws the whole 128x128 screen every 200ms, or a caller outside `APP/st7735.c` toggles `PB0` / `PA7` / `PB1` directly.
+**Bad**: `APP/st7735.c` reads `dht11_get_temperature()` or `heart_rate` directly, a scheduler task clears and redraws the whole 128x128 screen every 200ms, or a caller outside `APP/st7735.c` toggles `PB0` / `PA7` / `PB1` directly.
 
 ### 6. Tests Required
 
 - Build with Keil and confirm no C compile errors after adding `APP/st7735.c` to `MDK-ARM/helmet.uvprojx`.
 - Serial boot log must include `[ST7735] init=0` and `[BOOT] scheduler ready`.
 - Hardware must show the boot color self-test and then a readable ASCII page.
-- With DHT11 invalid, display must show `Temp:--C` and `Humi:--%`.
-- With DHT11 valid, display must update to numeric values such as `Temp:25C` and `Humi:50%`.
+- `APP/lcd_app.c` must be registered in `APP/bsp_system.h`, `APP/scheduler.c`, `Core/Src/main.c`, and `MDK-ARM/helmet.uvprojx`.
+- Search `APP/st7735.c` and `APP/st7735.h` for forbidden sensor coupling: `dht11`, `mq2`, `max30102`, `mpu6050`, `heart_rate`, `spo2`, `pitch`.
+- With DHT11 invalid, `lcd_app_task()` display must show `Temp:--C` and `Humi:--%`.
+- With DHT11 valid, `lcd_app_task()` display must update to numeric values such as `Temp:25C` and `Humi:50%`.
 - Search the display module for forbidden runtime patterns: `HAL_MAX_DELAY`, `0xFFFFFF`, `malloc`, `free`, and `printf`.
 - Run `git diff --check` and APP header guard / UTF-8 no BOM / LF checks before commit.
 

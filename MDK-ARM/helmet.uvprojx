@@ -1053,6 +1053,16 @@
               <FileType>5</FileType>
               <FilePath>..\APP\st7735.h</FilePath>
             </File>
+            <File>
+              <FileName>lcd_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\lcd_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>lcd_app.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\lcd_app.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

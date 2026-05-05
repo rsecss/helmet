@@ -120,6 +120,7 @@ int main(void)
   {
     Error_Handler();
   }
+  lcd_app_init();     // LCD 传感器数据显示页面初始化
   m100pg_init();      // M100PG 4G 模块串口接收转发初始化
   scheduler_init();   // 初始化调度器
   printf("[BOOT] scheduler ready\r\n");

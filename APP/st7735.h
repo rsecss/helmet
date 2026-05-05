@@ -17,12 +17,11 @@ extern "C" {
 #define ST7735_COLOR_MAGENTA    0xF81FU
 
 uint8_t st7735_init(void);      // 初始化 ST7735 软件 SPI 显示屏
-void st7735_task(void);         // 200ms 调度刷新 DHT11 显示页面
 uint8_t st7735_clear(void);     // 清屏为黑色
 uint8_t st7735_fill_screen(uint16_t color); // 填充全屏
 uint8_t st7735_fill_rect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint16_t color); // 填充矩形
 uint8_t st7735_draw_string(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color); // 绘制 6x12 ASCII 字符串
-uint8_t st7735_show_dht11_status(void); // 显示 DHT11 温湿度
+uint8_t st7735_draw_text(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color); // 绘制 UTF-8 中文与 ASCII 混排文本
 uint8_t st7735_is_ready(void);  // 获取显示模块就绪状态
 
 #ifdef __cplusplus

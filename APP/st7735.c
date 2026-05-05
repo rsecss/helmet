@@ -15,11 +15,9 @@
 #define ST7735_MADCTL_VALUE         0xC0U
 #define ST7735_FONT_WIDTH           6U
 #define ST7735_FONT_HEIGHT          12U
-#define ST7735_STATUS_X             4U
-#define ST7735_TEMP_Y               4U
-#define ST7735_HUMI_Y               20U
-#define ST7735_STATUS_LINE_WIDTH    72U
-#define ST7735_DHT11_INVALID_VALUE  0xFFU
+#define ST7735_CN12_WIDTH           12U
+#define ST7735_CN12_HEIGHT          12U
+#define ST7735_CN12_COUNT           ((uint8_t)(sizeof(tfont_cn12) / sizeof(tfont_cn12[0])))
 
 #define ST7735_CMD_SWRESET          0x01U
 #define ST7735_CMD_SLPOUT           0x11U
@@ -43,9 +41,52 @@
 #define ST7735_CMD_GMCTRN1          0xE1U
 
 static uint8_t st7735_ready;
-static uint8_t st7735_last_temp = ST7735_DHT11_INVALID_VALUE;
-static uint8_t st7735_last_humi = ST7735_DHT11_INVALID_VALUE;
-static uint8_t st7735_last_valid = ST7735_DHT11_INVALID_VALUE;
+
+/**
+ * @brief       判断 UTF-8 字符首字节对应的字符长度
+ * @param       lead  UTF-8 首字节
+ * @retval      字符字节长度，不支持时返回 0
+ */
+static uint8_t st7735_utf8_char_len(unsigned char lead)
+{
+    if (lead < 0x80U) {
+        return 1U;
+    }
+    if ((lead & 0xE0U) == 0xC0U) {
+        return 2U;
+    }
+    if ((lead & 0xF0U) == 0xE0U) {
+        return 3U;
+    }
+    if ((lead & 0xF8U) == 0xF0U) {
+        return 4U;
+    }
+    return 0U;
+}
+
+/**
+ * @brief       查找项目 12x12 中文字模
+ * @param       text      UTF-8 字符起始地址
+ * @param       char_len  UTF-8 字符字节长度
+ * @retval      字模指针，未找到时返回 NULL
+ */
+static const typFNT_CN12 *st7735_find_cn12_glyph(const char *text, uint8_t char_len)
+{
+    uint8_t i;
+
+    if ((text == NULL) || (char_len == 0U) || (char_len >= sizeof(tfont_cn12[0].Index))) {
+        return NULL;
+    }
+
+    for (i = 0U; i < ST7735_CN12_COUNT; i++) {
+        if ((memcmp(tfont_cn12[i].Index, text, char_len) == 0) &&
+            (tfont_cn12[i].Index[char_len] == 0U)) {
+            return &tfont_cn12[i];
+        }
+    }
+
+    return NULL;
+}
 
 /**
  * @brief       配置 ST7735 软件 SPI 所需 GPIO
@@ -248,9 +289,6 @@ uint8_t st7735_init(void)
     HAL_Delay(500U);
     (void)st7735_fill_screen(ST7735_COLOR_BLACK);
 
-    st7735_last_temp = ST7735_DHT11_INVALID_VALUE;
-    st7735_last_humi = ST7735_DHT11_INVALID_VALUE;
-    st7735_last_valid = ST7735_DHT11_INVALID_VALUE;
     return 0U;
 }
 
@@ -369,46 +407,108 @@ uint8_t st7735_draw_string(uint8_t x, uint8_t y, const char *text, uint16_t colo
 }
 
 /**
- * @brief       显示 DHT11 温湿度状态页面
- * @param       无
- * @retval      0 成功，非 0 表示显示未就绪
+ * @brief       绘制 12x12 中文字模
+ * @param       x         起始 X 坐标
+ * @param       y         起始 Y 坐标
+ * @param       glyph     字模指针
+ * @param       color     前景色
+ * @param       bg_color  背景色
+ * @retval      0 成功，非 0 表示参数错误或显示未就绪
  */
-uint8_t st7735_show_dht11_status(void)
+static uint8_t st7735_draw_cn12(uint8_t x, uint8_t y, const typFNT_CN12 *glyph,
+                                uint16_t color, uint16_t bg_color)
 {
-    char temp_text[] = "Temp:--C";
-    char humi_text[] = "Humi:--%";
-    uint8_t temp;
-    uint8_t humi;
+    uint8_t row;
+    uint8_t col;
+    uint8_t glyph_row;
 
-    if (st7735_ready == 0U) {
+    if ((st7735_ready == 0U) || (glyph == NULL) ||
+        (((uint16_t)x + ST7735_CN12_WIDTH) > ST7735_WIDTH) ||
+        (((uint16_t)y + ST7735_CN12_HEIGHT) > ST7735_HEIGHT)) {
         return 1U;
     }
 
-    if (dht11_is_valid() != 0U) {
-        temp = dht11_get_temperature();
-        humi = dht11_get_humidity();
-        if (temp > 99U) {
-            temp = 99U;
+    st7735_set_address_window(x, y,
+                              (uint8_t)(x + ST7735_CN12_WIDTH - 1U),
+                              (uint8_t)(y + ST7735_CN12_HEIGHT - 1U));
+
+    for (row = 0U; row < ST7735_CN12_HEIGHT; row++) {
+        glyph_row = glyph->Msk[(uint8_t)(row * 2U)];
+        for (col = 0U; col < 8U; col++) {
+            if ((glyph_row & (uint8_t)(0x80U >> col)) != 0U) {
+                st7735_write_color(color);
+            } else {
+                st7735_write_color(bg_color);
+            }
         }
-        if (humi > 99U) {
-            humi = 99U;
+
+        glyph_row = glyph->Msk[(uint8_t)((row * 2U) + 1U)];
+        for (col = 0U; col < 4U; col++) {
+            if ((glyph_row & (uint8_t)(0x80U >> col)) != 0U) {
+                st7735_write_color(color);
+            } else {
+                st7735_write_color(bg_color);
+            }
         }
-        temp_text[5] = (char)('0' + (temp / 10U));
-        temp_text[6] = (char)('0' + (temp % 10U));
-        humi_text[5] = (char)('0' + (humi / 10U));
-        humi_text[6] = (char)('0' + (humi % 10U));
     }
 
-    (void)st7735_fill_rect(ST7735_STATUS_X, ST7735_TEMP_Y,
-                           ST7735_STATUS_LINE_WIDTH, ST7735_FONT_HEIGHT,
-                           ST7735_COLOR_BLACK);
-    (void)st7735_fill_rect(ST7735_STATUS_X, ST7735_HUMI_Y,
-                           ST7735_STATUS_LINE_WIDTH, ST7735_FONT_HEIGHT,
-                           ST7735_COLOR_BLACK);
-    (void)st7735_draw_string(ST7735_STATUS_X, ST7735_TEMP_Y, temp_text,
-                             ST7735_COLOR_WHITE, ST7735_COLOR_BLACK);
-    (void)st7735_draw_string(ST7735_STATUS_X, ST7735_HUMI_Y, humi_text,
-                             ST7735_COLOR_WHITE, ST7735_COLOR_BLACK);
+    return 0U;
+}
+
+/**
+ * @brief       绘制 UTF-8 中文与 6x12 ASCII 混排文本
+ * @param       x         起始 X 坐标
+ * @param       y         起始 Y 坐标
+ * @param       text      以 NUL 结尾的 UTF-8 文本
+ * @param       color     前景色
+ * @param       bg_color  背景色
+ * @retval      0 成功，非 0 表示参数错误或显示未就绪
+ */
+uint8_t st7735_draw_text(uint8_t x, uint8_t y, const char *text, uint16_t color, uint16_t bg_color)
+{
+    uint8_t cursor_x = x;
+    uint8_t char_len;
+    char ascii_text[2];
+    const typFNT_CN12 *glyph;
+
+    if ((st7735_ready == 0U) || (text == NULL) ||
+        (x >= ST7735_WIDTH) || (y >= ST7735_HEIGHT)) {
+        return 1U;
+    }
+
+    while (*text != '\0') {
+        char_len = st7735_utf8_char_len((unsigned char)*text);
+        if (char_len == 0U) {
+            if (((uint16_t)cursor_x + ST7735_FONT_WIDTH) > ST7735_WIDTH) {
+                break;
+            }
+            (void)st7735_draw_string(cursor_x, y, "?", color, bg_color);
+            cursor_x = (uint8_t)(cursor_x + ST7735_FONT_WIDTH);
+            text++;
+        } else if (char_len == 1U) {
+            if (((uint16_t)cursor_x + ST7735_FONT_WIDTH) > ST7735_WIDTH) {
+                break;
+            }
+            ascii_text[0] = *text;
+            ascii_text[1] = '\0';
+            (void)st7735_draw_string(cursor_x, y, ascii_text, color, bg_color);
+            cursor_x = (uint8_t)(cursor_x + ST7735_FONT_WIDTH);
+            text++;
+        } else {
+            glyph = st7735_find_cn12_glyph(text, char_len);
+            if (((uint16_t)cursor_x + ST7735_CN12_WIDTH) > ST7735_WIDTH) {
+                break;
+            }
+            if (glyph != NULL) {
+                (void)st7735_draw_cn12(cursor_x, y, glyph, color, bg_color);
+                cursor_x = (uint8_t)(cursor_x + ST7735_CN12_WIDTH);
+            } else {
+                (void)st7735_draw_string(cursor_x, y, "?", color, bg_color);
+                cursor_x = (uint8_t)(cursor_x + ST7735_FONT_WIDTH);
+            }
+            text += char_len;
+        }
+    }
 
     return 0U;
 }
@@ -421,35 +521,4 @@ uint8_t st7735_show_dht11_status(void)
 uint8_t st7735_is_ready(void)
 {
     return st7735_ready;
-}
-
-/**
- * @brief       调度器周期刷新 DHT11 显示页面
- * @param       无
- * @retval      无
- */
-void st7735_task(void)
-{
-    uint8_t temp;
-    uint8_t humi;
-    uint8_t valid;
-
-    if (st7735_ready == 0U) {
-        return;
-    }
-
-    temp = dht11_get_temperature();
-    humi = dht11_get_humidity();
-    valid = dht11_is_valid();
-
-    if ((temp == st7735_last_temp) &&
-        (humi == st7735_last_humi) &&
-        (valid == st7735_last_valid)) {
-        return;
-    }
-
-    (void)st7735_show_dht11_status();
-    st7735_last_temp = temp;
-    st7735_last_humi = humi;
-    st7735_last_valid = valid;
 }

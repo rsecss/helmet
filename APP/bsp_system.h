@@ -30,6 +30,7 @@ extern "C" {
 #include "rgb_led.h"                    // 三色 LED 模块
 #include "pwm_motor.h"                  // PWM 电机驱动模块
 #include "st7735.h"                     // ST7735 彩色显示屏模块
+#include "lcd_app.h"                    // LCD 传感器数据显示应用
 #include "scheduler.h"
 
 /* MPU6050 相关库 */
