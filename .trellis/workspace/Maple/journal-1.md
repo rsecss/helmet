@@ -410,3 +410,322 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: PWM 电机驱动模块（TB6612FNG A 通道）
+
+**Date**: 2026-05-04
+**Task**: PWM 电机驱动模块（TB6612FNG A 通道）
+**Branch**: `feature/pwm-motor`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Item | Description |
+|------|-------------|
+| 新模块 | `APP/pwm_motor.c/h` 封装 TB6612FNG A 通道驱动 |
+| 公开接口 | `pwm_motor_init/stop/set_speed/set_direction/set_signed_speed` |
+| 时基 | TIM3_CH1 部分重映射 → PB4，Period=3599，Prescaler=0 |
+| 控制脚 | PA12=AIN1，PA11=AIN2，PB15=STBY |
+| 安全策略 | 默认进入安全停止；方向切换先归零再换向再恢复速度；速度百分比超 100 自动夹断 |
+| 启动顺序 | `MX_TIM3_Init` → `pwm_motor_init()`（main.c 在 `MX_USART2_UART_Init` 之后插入） |
+
+**新增/更新文件**:
+- `APP/pwm_motor.c`、`APP/pwm_motor.h`（模块实现与公开接口）
+- `APP/bsp_system.h`（统一引入）
+- `Core/Src/main.c`（外设初始化后调用 `pwm_motor_init`）
+- `Core/Src/tim.c`、`Core/Inc/tim.h`（CubeMX 生成 TIM3_CH1 PWM）
+- `Core/Src/gpio.c`（PA11/PA12/PB15 输出配置）
+- `helmet.ioc`（启用 TIM3、PB4 重映射、新增方向/STBY 引脚）
+- `MDK-ARM/helmet.uvprojx`、`helmet.uvoptx`、`helmet.hex`（Keil 工程纳入新源文件并重新编译）
+- `README.md`、`CLAUDE.md`（外设映射表 + 执行流程同步）
+
+**任务归档**:
+- `.trellis/tasks/05-02-pwm-motor` → `archive/2026-05/`
+
+**验证**:
+- 板上实测：duty 0/50/100 风扇响应正常，启动后保持安全停止
+- Keil 构建生成 `helmet.hex` 已纳入提交
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b935b3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 11: ST7735 彩色显示屏模块
+
+**Date**: 2026-05-05
+**Task**: ST7735 彩色显示屏模块
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Item | Details |
+|------|---------|
+| Feature | Added APP-level ST7735 color TFT display module for 1.44-inch 128x128 panel using GPIO software SPI. |
+| Wiring | PB0=SCL, PA7=SDA, PB1=DC; CS/RES/BLK kept outside firmware control for this round. |
+| Display | Boot self-test shows color blocks and ST7735 OK, then clears and displays DHT11 Temp/Humi ASCII page. |
+| Debug Results | Hardware testing fixed white screen/control-pin assumptions, panel offset noise, orientation, font size, and mirrored character bit order. |
+| Docs | Updated README, CLAUDE, OLED PRD, and backend directory-structure spec with executable ST7735 contracts and validation matrix. |
+| Verification | Keil build/download and human hardware test passed; task context validation, git diff --check, header guard, encoding, and forbidden-pattern checks passed. cppcheck was not run locally because it is not installed. |
+
+**Updated Files**:
+- `APP/st7735.c`
+- `APP/st7735.h`
+- `APP/lcd_font_lib.h`
+- `APP/bsp_system.h`
+- `APP/scheduler.c`
+- `Core/Src/main.c`
+- `MDK-ARM/helmet.uvprojx`
+- `MDK-ARM/helmet/helmet.hex`
+- `README.md`
+- `CLAUDE.md`
+- `.trellis/spec/backend/directory-structure.md`
+- `.trellis/tasks/archive/2026-05/05-02-oled-display/`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e0e65b2` | (see git log) |
+| `85a9fd5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 12: LCD 传感器状态页
+
+**Date**: 2026-05-05
+**Task**: LCD 传感器状态页
+**Branch**: `dev`
+
+### Summary
+
+Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/Keil encoding lessons learned.
+
+### Main Changes
+
+- Added `APP/lcd_app.c` / `APP/lcd_app.h` as the hardware-specific display application layer for six sensor lines: temperature, humidity, smoke concentration, heart rate, SpO2, and attitude angles.
+- Kept `APP/st7735.c` as a reusable low-coupling display driver and moved sensor-specific page logic out of the ST7735 module.
+- Added project-specific 12x12 Chinese glyph support with UTF-8 byte keys and UTF-8 hex escaped LCD labels to avoid Keil source charset failures.
+- Registered the new LCD app module in `APP/bsp_system.h`, `APP/scheduler.c`, `Core/Src/main.c`, and `MDK-ARM/helmet.uvprojx`.
+- Updated README, CLAUDE, and backend specs for the new LCD module boundary and Chinese font validation rules.
+
+### Testing
+
+- [OK] User confirmed Keil build succeeded.
+- [OK] User confirmed hardware LCD display test succeeded.
+- [OK] `git diff --check HEAD~2..HEAD` passed.
+- [OK] ST7735 driver no longer contains direct DHT11/MQ2/MAX30102/MPU6050 sensor coupling.
+- [OK] LCD text/font files contain no known mojibake markers checked during review.
+- [OK] APP header guards passed for touched headers.
+- [WARN] Local `cppcheck` command is not installed, so full static analysis was not run locally.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 13: 归档 4G 云端联调任务
+
+**Date**: 2026-05-05
+**Task**: 归档 4G 云端联调任务
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+### Summary
+
+确认 4G 云端联调任务实际功能已全部完成（含 Web 端实机联调与上电默认 LED 状态修复），代码复核 PRD 剩余 2 个 AC 已在代码层实现防御逻辑，更新 PRD 与 `task.json` 后归档任务到 `archive/2026-05/`。
+
+### Main Changes
+
+| Item | Details |
+|------|---------|
+| Code Review | 复核 `APP/m100pg.c` 与 `APP/m100pg_protocol.c`，确认非法/不完整命令拒绝（`memcmp` 严格等长匹配 + 未知命令落 `on_unknown` 不触发控制）和 RingBuffer 中断侧溢出截断（满则置 `rx_overflow` 并 `break`，不阻塞中断；`m100pg_proto_feed` 溢出后跳至下一 `\n` 丢弃半截数据）已实现 |
+| PRD | 勾选剩余 2 个 AC（非法/不完整数据不误触发、RingBuffer 溢出不阻塞中断），并在 Manual Verification 追加 2026-05-05 代码复核条目，注明未做专项注入/压测，按代码层防御达成 |
+| Task State | `task.json` 状态从 `planning → done`，`current_phase: 0 → 6`，`completedAt: 2026-05-05` |
+| Archive | 任务从 `tasks/04-28-04-28-4g-cloud-uart` 移动到 `tasks/archive/2026-05/04-28-04-28-4g-cloud-uart`，由 `task.py archive` 自动提交 |
+
+**Updated Files**:
+- `.trellis/tasks/archive/2026-05/04-28-04-28-4g-cloud-uart/prd.md`
+- `.trellis/tasks/archive/2026-05/04-28-04-28-4g-cloud-uart/task.json`
+
+### Testing
+
+- [OK] PRD 全部 12 个 AC 已勾选
+- [OK] `git status` 工作目录 clean
+- [OK] 归档自动提交成功（`7f4a67a chore(task): 归档 04-28-04-28-4g-cloud-uart`）
+- [SKIP] 未做非法命令注入和强制 RingBuffer 溢出专项压测（按代码层防御达成；后续若扩展命令字典或接入语音模块需补回归测试）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task archived
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7f4a67a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 14: MPU6050倒地与碰撞报警
+
+**Date**: 2026-05-05
+**Task**: MPU6050倒地与碰撞报警
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+实现 MPU6050 事故级倒地和激烈碰撞报警：倒地采用低重力/冲击事件后稳定倾斜姿态确认，碰撞采用独立尖峰检测并短保持；两类报警可同时存在。新增本地 helmet_alarm 模块，报警后 RGB 红灯快闪并至少展示 15s，云端 LED 基础颜色通过 helmet_alarm_set_base_led() 仲裁恢复。
+
+同步 LCD 第 6 行报警状态显示、M100PG telemetry 的 fall/collision 字段、Keil 工程文件、README/CLAUDE，以及 backend 规格中的 MPU6050 Safety Alarm Fanout 合同。rgb_led_color_t 保持由 rgb_led.h 定义，rgb_led.h 自包含，helmet_alarm.h 通过 bsp_system.h 聚合头使用该类型。
+
+验证：git diff --check 通过；本轮文本文件 UTF-8 无 BOM + LF 检查通过；APP 头文件守卫通过；新增高频路径无 printf/HAL_MAX_DELAY/0xFFFFFF；RGB 直接写入路径仅保留 rgb_led.c 与 helmet_alarm.c。cppcheck 本机不可用，Keil Build 由用户本地验证。提交后仅剩 MDK-ARM/helmet/helmet.hex 构建产物未提交。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a17cad` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 15: 归档 ASRPro 离线语音控制任务
+
+**Date**: 2026-05-05
+**Task**: 归档 ASRPro 离线语音控制任务
+**Branch**: `dev`
+
+### Summary
+
+ASRPro 离线语音模块实机验证通过，归档 05-05-asrpro-voice-control 任务
+
+### Main Changes
+
+### Summary
+
+ASRPro 离线语音模块接入 STM32 USART1：硬件实机已完成 `led_on` / `led_off` / `motor_speed_0..3` 命令验证，PRD 全部 12 项 AC 勾选完毕，task.json 状态推进至 done/phase 6 并归档到 `archive/2026-05/`。
+
+### Main Changes
+
+| Item | Details |
+|------|---------|
+| 实现入口 | 新增 `APP/asrpro.c` / `APP/asrpro.h`，128B RX 环形缓冲 + 48B 行缓冲，单字节 IT 收 + 调度器侧解析 |
+| 命令分发 | LED 走 `helmet_alarm_set_base_led()` 保留报警优先级；电机走 `pwm_motor_set_speed()`，档位映射 `{0, 33, 66, 100}` |
+| 解析策略 | `memcmp` 严格等长匹配（小写命令 + 数字尾），裁剪首尾 ASCII 空白与 CRLF；超长行进入 `overflow` 截断丢弃直至下一 `\n` |
+| 中断侧 | `HAL_UART_RxCpltCallback` 仅 push 字节并 `HAL_UART_Receive_IT` 重启接收；`HAL_UART_ErrorCallback` 在 USART1 出错时恢复接收，USART2 路径未动 |
+| 调试开关 | `ASRPRO_ENABLE_COMMAND_EXECUTION`（默认 1，关 0 用于临时 USART1 调试）+ `ASRPRO_ENABLE_USART1_DEBUG`（默认 0，控制 `printf` / `m100pg` 转发）|
+| Cube 集成 | `Core/Src/usart.c` 在 USER 块启用 USART1 IRQ；`stm32f1xx_it.c` 增加 `USART1_IRQHandler`；`Core/Src/main.c` 在用户块调用 `asrpro_init()` 并按宏切换 boot 日志 |
+| 工程注册 | `APP/bsp_system.h` include、`APP/scheduler.c` 加 `asrpro_task` (10ms)、`MDK-ARM/helmet.uvprojx` 加源文件 |
+| 文档 | `README.md`、`CLAUDE.md` 同步外设表 / 模块表 / 执行流程；PRD 勾 12/12 AC 并写 Manual Verification |
+| 归档 | task.json 推进 `planning → done`、`current_phase 0 → 6`、`commit=62a2c3b`、`completedAt=2026-05-05`，由 `task.py archive` 自动迁移到 `archive/2026-05/` |
+
+### Testing
+
+- [OK] 用户在 Keil 完成 Build 并烧录目标板，实机验证 `led_on` / `led_off` / `motor_speed_0..3` 语音命令驱动 RGB LED 与 PWM 电机正常
+- [OK] 用户确认 USART2 4G 上传与下行 LED/motor 命令在 ASRPro 接入后行为不变
+- [OK] 报警仲裁仍生效：跌倒/碰撞下语音 `led_off` 不抑制红灯指示
+- [SKIP] 本机无 cppcheck，未做静态分析；按代码层 `memcmp` 严格匹配 + 调度器侧解析达成
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task archived
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `62a2c3b` | (see git log) |
+| `69daf1d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

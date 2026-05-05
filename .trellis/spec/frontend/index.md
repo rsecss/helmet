@@ -4,6 +4,14 @@
 
 ---
 
+## Status: Not Applicable
+
+> **SmartHelm is firmware-only**. There is no frontend codebase in this repository. Browser-side dashboards or mini-programs (if any) live downstream and consume the M100PG telemetry/command protocol documented in `APP/m100pg_protocol.h` and the project README.
+>
+> The files in this directory are leftover Trellis scaffolding. **Do not fill them in unless a real frontend is added to this repo.** Backend (firmware) guidelines under `../backend/` are the only authoritative spec.
+
+---
+
 ## Overview
 
 This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.

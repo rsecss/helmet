@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-04-29
+- **Total Sessions**: 15
+- **Last Active**: 2026-05-05
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~412 | Active |
+| `journal-1.md` | ~731 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,12 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-05-05 | 归档 ASRPro 离线语音控制任务 | `62a2c3b`, `69daf1d` | `dev` |
+| 14 | 2026-05-05 | MPU6050倒地与碰撞报警 | `1a17cad` | `dev` |
+| 13 | 2026-05-05 | 归档 4G 云端联调任务 | `7f4a67a` | `dev` |
+| 12 | 2026-05-05 | LCD 传感器状态页 | `e7cef16`, `888eba3` | `dev` |
+| 11 | 2026-05-05 | ST7735 彩色显示屏模块 | `e0e65b2`, `85a9fd5` | `dev` |
+| 10 | 2026-05-04 | PWM 电机驱动模块（TB6612FNG A 通道） | `3b935b3` | `feature/pwm-motor` |
 | 9 | 2026-04-29 | 新增三色 LED 模块 | `4b4fe05`, `a6bb8ef` | `dev` |
 | 8 | 2026-04-29 | 4G DTU 基础透传链路 | `774c2dd` | `dev` |
 | 7 | 2026-04-28 | 完成 MAX30102 心率血氧模块 | `3b0f8f8`, `51a993f` | `dev` |

@@ -1,7 +1,7 @@
 #ifndef RGB_LED_H
 #define RGB_LED_H
 
-#include "bsp_system.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +23,7 @@ void rgb_led_set_enabled(uint8_t enabled);         // 设置开关状态
 void rgb_led_off(void);                            // 关闭 LED
 rgb_led_color_t rgb_led_get_color(void);           // 获取当前颜色
 uint8_t rgb_led_get_enabled(void);                 // 获取开关状态
-void rgb_led_init(void);                           // 初始化，默认白色
+void rgb_led_init(void);                           // 初始化，默认关闭
 void rgb_led_task(void);                           // 手动测试入口
 
 #ifdef __cplusplus

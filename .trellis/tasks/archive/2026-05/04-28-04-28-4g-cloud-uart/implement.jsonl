@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "APP module boundaries and RGB LED hardware mapping ownership"}
+{"file": "APP/rgb_led.c", "reason": "RGB LED initialization default state root cause"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP firmware quality gate and comments/logging constraints"}
+{"file": "Core/Src/main.c", "reason": "boot log and initialization order for RGB LED and M100PG"}

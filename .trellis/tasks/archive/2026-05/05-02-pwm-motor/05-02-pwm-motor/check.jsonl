@@ -1,0 +1,6 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify APP module registration and CubeMX boundaries"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "verify scheduler nonblocking behavior and static state"}
+{"file": "Core/Src/tim.c", "reason": "verify TIM3 PWM settings and PB4 remap"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "verify APP quality gate"}

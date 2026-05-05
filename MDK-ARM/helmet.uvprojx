@@ -1089,6 +1089,16 @@
               <FilePath>..\APP\m100pg.h</FilePath>
             </File>
             <File>
+              <FileName>asrpro.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\asrpro.c</FilePath>
+            </File>
+            <File>
+              <FileName>asrpro.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\asrpro.h</FilePath>
+            </File>
+            <File>
               <FileName>m100pg_protocol.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\m100pg_protocol.c</FilePath>
@@ -1099,6 +1109,16 @@
               <FilePath>..\APP\m100pg_protocol.h</FilePath>
             </File>
             <File>
+              <FileName>pwm_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\pwm_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>pwm_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\pwm_motor.h</FilePath>
+            </File>
+            <File>
               <FileName>rgb_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\rgb_led.c</FilePath>
@@ -1107,6 +1127,51 @@
               <FileName>rgb_led.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\APP\rgb_led.h</FilePath>
+            </File>
+            <File>
+              <FileName>helmet_alarm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\helmet_alarm.c</FilePath>
+            </File>
+            <File>
+              <FileName>helmet_alarm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\helmet_alarm.h</FilePath>
+            </File>
+            <File>
+              <FileName>st7735.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\st7735.c</FilePath>
+            </File>
+            <File>
+              <FileName>st7735.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\st7735.h</FilePath>
+            </File>
+            <File>
+              <FileName>lcd_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\lcd_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>lcd_app.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\lcd_app.h</FilePath>
+            </File>
+            <File>
+              <FileName>lcd_font_lib.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\lcd_font_lib.h</FilePath>
+            </File>
+            <File>
+              <FileName>m100pg_bsp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\m100pg_bsp.c</FilePath>
+            </File>
+            <File>
+              <FileName>m100pg_bsp.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\APP\m100pg_bsp.h</FilePath>
             </File>
           </Files>
         </Group>

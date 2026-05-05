@@ -26,13 +26,17 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2) → ADC DMA 启动 → rgb_led_init（三色 LED 默认白色） → m100pg_init（USART2 空闲 DMA 接收） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2, TIM3) → ADC DMA 启动 → rgb_led_init（三色 LED 默认关闭） → pwm_motor_init（TB6612FNG 默认安全停止） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → st7735_init（PB0/PB1/PA7 软件 SPI，自检色块） → lcd_app_init（传感器数据显示页面） → asrpro_init（USART1 单字节中断接收） → m100pg_init（USART2 空闲 DMA 接收） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
-M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须调用 `rgb_led_*` 公开接口，不得直接写 PB12/PB13/PB14。
+M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须通过 `helmet_alarm_set_base_led()` 更新普通 LED 状态，不得直接写 PB12/PB13/PB14。上传 telemetry 包含 MPU6050 的 `fall` / `collision` 报警状态；`APP/helmet_alarm.c` 以 20ms 周期读取报警状态，报警后 RGB 红灯至少快闪 15s，解除后恢复云端下发颜色。
+
+ASRPro 天问离线语音模块使用 USART1：ASR_TX 接 PA10，ASR_RX 接 PA9。默认固件把 USART1 作为纯语音串口，`APP/asrpro.c` 通过单字节中断接收并在调度器任务中解析 `led_on`、`led_off`、`motor_speed_0..3`。语音 LED 控制同样必须通过 `helmet_alarm_set_base_led()`，电机档位映射为 `{0, 33, 66, 100}`。`APP/asrpro.h` 中 `ASRPRO_ENABLE_USART1_DEBUG` 默认关闭，避免 `printf` 文本进入语音模块；临时串口一调试时可打开该宏或关闭 `ASRPRO_ENABLE_COMMAND_EXECUTION` 后重新编译。
 
 ### 任务调度器（`APP/scheduler.c`）
 
 轮询式协作调度器，基于 `HAL_GetTick()` 实现毫秒级定时。添加新任务：在 `scheduler_task[]` 数组中追加 `{函数指针, 周期ms, 0}` 条目。
+
+ST7735 显示屏模块使用 GPIO 软件 SPI：`PB0=SCL`、`PA7=SDA`、`PB1=DC`，`CS/RES/BLK` 本轮保持悬空且固件不控制。`APP/st7735.c` 只保留低耦合绘图接口；`APP/lcd_app.c` 以 200ms 周期读取传感器缓存并脏刷新 6 行 ASCII 文本，避免全屏高频刷新阻塞协作调度。
 
 ### 头文件依赖
 
@@ -42,10 +46,12 @@ M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 D
 
 | 外设    | 引脚       | 配置                      |
 |---------|-----------|--------------------------|
-| USART1  | PA9/PA10  | 115200-8N1, printf 重定向 |
+| USART1  | PA9/PA10  | ASRPro 离线语音模块，115200-8N1，默认禁用 printf 输出 |
 | ADC1    | PA0       | MQ2 烟雾传感器，DMA 循环采样 |
 | TIM1    | 内部时钟   | 微秒级延时，预分频 72-1（1MHz 计数频率） |
+| TIM3_CH1 | PB4      | TB6612FNG A 通道 PWMA，小风扇 PWM 调速，部分重映射 |
 | GPIO    | PA8       | DHT11 数据线，推挽输出高速模式 |
+| GPIO    | PA11/PA12/PB15 | TB6612FNG AIN2/AIN1/STBY |
 | GPIO    | PB12/PB13/PB14 | 共阴三色 LED，低电平默认熄灭 |
 | I2C1    | PB6/PB7   | MPU6050 六轴传感器，Fast Mode 400kHz |
 | I2C2    | PB10/PB11 | MAX30102 心率血氧传感器，Fast Mode 400kHz |
@@ -82,10 +88,51 @@ M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 D
 
 ## CI/CD
 
-- **质量门禁**（`.github/workflows/quality.yml`）：push main/dev 和 PR main 时触发，执行 cppcheck 静态分析、头文件守卫检查、编码规范检查（BOM/CRLF）
-- **自动发布**（`.github/workflows/release.yml`）：推送 `v*` 标签时触发，使用 git-cliff 基于 Conventional Commits 生成 changelog 并创建 GitHub Release
-- **发布流程**：`git tag v0.x.0 && git push origin v0.x.0`，Release Notes 自动生成
-- APP 目录下的源文件必须通过质量门禁：无 cppcheck 警告、头文件含 `#ifndef` 守卫、UTF-8 无 BOM、LF 行尾
+### 质量门禁（`.github/workflows/quality.yml`）
+
+`push main/dev` 与 `PR main` 触发，三类检查：
+
+- **静态检查**：cppcheck（warning/performance/portability）、APP 头文件守卫、UTF-8 无 BOM、LF 行尾
+- **Conventional Commits**：PR 标题强制 `<type>(<scope>): <desc>`，可选类型 `feat / fix / docs / style / refactor / perf / test / chore / ci / build / revert / release`
+- **CHANGELOG 同步**：`feat / fix / perf / refactor` 类 PR 或改动 `APP/*.{c,h}` 的 PR 必须更新 `CHANGELOG.md` 的 `[Unreleased]` 段；release PR 走反向校验
+
+APP 目录的源文件必须通过质量门禁：无 cppcheck 警告、头文件含 `#ifndef` 守卫、UTF-8 无 BOM、LF 行尾。
+
+### 自动发版（`.github/workflows/release.yml`）
+
+推送 `v*` 标签触发，三段式：
+
+1. **validate**：tag 必须已合入 main（防止从 dev 误打 tag）+ `CHANGELOG.md` 含 `## [X.Y.Z] - YYYY-MM-DD` 段
+2. **quality**：复跑静态检查
+3. **release**：从 `CHANGELOG.md` 抽取该版本段作为 Release Note 主体 + `git-cliff` 生成完整提交记录附录（折叠展示），调 GitHub API 发 Release
+
+### 发版工作流（PR-based，禁止直接 push main）
+
+```text
+开发期 dev 分支
+  ├─ 每个 feat/fix PR → 在 CHANGELOG.md [Unreleased] 段加一行
+  └─ PR 走 quality.yml 三类检查（静态 + commits + changelog 同步）
+
+准备发版（dev 分支本地操作）
+  ├─ CHANGELOG.md：[Unreleased] 重命名为 [X.Y.Z] - YYYY-MM-DD，顶部新建空 [Unreleased]，底部 compare 链接区追加 [X.Y.Z] 与更新 [Unreleased]
+  └─ commit: chore(release): vX.Y.Z
+
+Release PR (dev → main)
+  ├─ PR URL 加 ?template=release.md 用发版模板
+  ├─ 标题: release: vX.Y.Z
+  └─ 评审 + squash & merge
+
+打 tag（main HEAD）
+  ├─ git checkout main && git pull origin main
+  ├─ git tag vX.Y.Z
+  └─ git push origin vX.Y.Z
+
+CI 自动 release.yml → 创建 GitHub Release
+```
+
+**版本号（SemVer）**：MAJOR 不兼容 / MINOR 新增功能 / PATCH 仅修复。
+
+**main 分支保护**：禁止直接 push，所有变更走 PR；GitHub Settings → Branches 建议启用 "Require pull request before merging" + "Require status checks to pass"。
 
 ## 关键约定
 

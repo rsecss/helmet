@@ -116,6 +116,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN USART1_MspInit 1 */
+    HAL_NVIC_SetPriority(USART1_IRQn, 0, 1);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
 
   /* USER CODE END USART1_MspInit 1 */
   }
@@ -186,6 +188,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9|GPIO_PIN_10);
 
   /* USER CODE BEGIN USART1_MspDeInit 1 */
+    HAL_NVIC_DisableIRQ(USART1_IRQn);
 
   /* USER CODE END USART1_MspDeInit 1 */
   }
@@ -218,7 +221,12 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 // 串口重定向
 int fputc(int ch, MY_FILE * str)
 {
+    (void)str;
+#if ASRPRO_ENABLE_USART1_DEBUG
     HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 10);
+#else
+    (void)ch;
+#endif
     return ch;
 }
 /* USER CODE END 1 */

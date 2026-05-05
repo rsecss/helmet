@@ -1,0 +1,6 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify module boundary and hardware default state ownership"}
+{"file": "Core/Src/main.c", "reason": "review boot log wording after default LED change"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "verify APP quality gate expectations after LED default change"}
+{"file": "APP/rgb_led.c", "reason": "review RGB LED initialization diff"}

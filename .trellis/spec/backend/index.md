@@ -14,11 +14,11 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | Maintained |
-| [Database Guidelines](./database-guidelines.md) | Embedded runtime data, DMA, ring buffer, UART contracts | Maintained |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns, review checklist | Maintained |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | Maintained |
+| [Directory Structure](./directory-structure.md) | Module organization, naming conventions, ST7735 display contract | Maintained |
+| [Database Guidelines](./database-guidelines.md) | Embedded runtime data, DMA, per-module ring buffers, scheduler/UART/voice contracts | Maintained |
+| [Error Handling](./error-handling.md) | HAL/module/system error tiers, degradation strategy, common mistakes | Maintained |
+| [Quality Guidelines](./quality-guidelines.md) | CI quality gate, forbidden patterns, code review checklist, biosignal algorithm rules | Maintained |
+| [Logging Guidelines](./logging-guidelines.md) | USART1 printf conventions, log-level discipline, ASR mode quiet rule | Maintained |
 
 ---
 

@@ -1,0 +1,6 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify new APP module registration"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "verify USART1 log handling"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "verify code quality and guards"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "verify UART ISR buffering contract"}

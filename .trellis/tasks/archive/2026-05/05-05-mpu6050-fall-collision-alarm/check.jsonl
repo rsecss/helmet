@@ -1,0 +1,7 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Verify module boundary and scheduler pattern compliance"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify APP firmware quality gate"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Verify high-frequency task has no blocking logs"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify safety event local alarm and sensor failure behavior"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Verify single-writer sensor state and event flags"}

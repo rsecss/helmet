@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "cooperative scheduler nonblocking runtime rules"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP quality gate and CubeMX boundary rules"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "new APP module registration and hardware mapping boundaries"}

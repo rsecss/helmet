@@ -1,4 +1,5 @@
 #include "rgb_led.h"
+#include "bsp_system.h"
 
 #define RGB_LED_R_GPIO_PORT    GPIOB
 #define RGB_LED_R_PIN          GPIO_PIN_12
@@ -156,7 +157,7 @@ uint8_t rgb_led_get_enabled(void)
 void rgb_led_init(void)
 {
     rgb_led_gpio_init();
-    rgb_led_set_white();
+    rgb_led_off();
 }
 
 /**

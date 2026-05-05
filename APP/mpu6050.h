@@ -38,8 +38,15 @@ extern short gyrox, gyroy, gyroz;
 extern uint16_t AVM;
 extern uint16_t GVM;
 
-/* 跌倒标志 */
+/* 报警标志 */
 extern bool fall_flag;
+extern bool collision_flag;
+
+uint8_t mpu6050_is_ready(void);             // 获取传感器可用状态
+uint8_t mpu6050_is_fall_alarm(void);        // 获取跌倒报警状态
+uint8_t mpu6050_is_collision_alarm(void);   // 获取激烈碰撞报警状态
+uint8_t mpu6050_get_alarm_flags(void);      // bit0=跌倒，bit1=碰撞
+void mpu6050_clear_alarm(void);             // 清除已锁存报警
 
 #ifdef __cplusplus
 }

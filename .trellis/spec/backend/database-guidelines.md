@@ -38,23 +38,24 @@ HAL_UARTEx_ReceiveToIdle_DMA(&huart2, usart_rx_dma_buffer, sizeof(usart_rx_dma_b
 
 ### 2. 环形缓冲区（生产 - 消费模式）
 
-**特点**：中断侧写入、任务侧读取，避免阻塞中断。参见 `APP/ringbuffer.c`。
+**特点**：中断侧写入、任务侧读取，避免阻塞中断。当前每个 UART 驱动模块在自己的 `.c` 内部维护私有静态环形缓冲（参见 `APP/m100pg.c::m100pg_rx_ring` + `m100pg_ring_*`、`APP/asrpro.c::asrpro_rx_ring` + `asrpro_ring_*`），不再共享公共 `ringbuffer` 组件。
 
 ```c
-/* 中断回调（生产者） */
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+/* APP/m100pg.c 中断回调（生产者，简化示意） */
+void m100pg_rx_event_callback(UART_HandleTypeDef *huart, uint16_t size)
 {
-    if (!ringbuffer_is_full(&usart_rb))
-        ringbuffer_write(&usart_rb, usart_rx_dma_buffer, Size);
-    memset(usart_rx_dma_buffer, 0, sizeof(usart_rx_dma_buffer));
+    if (huart->Instance != USART2) return;
+    m100pg_ring_write(m100pg_rx_dma_buffer, size);
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, m100pg_rx_dma_buffer,
+                                 sizeof(m100pg_rx_dma_buffer));
 }
 
-/* 调度器任务（消费者） */
+/* APP/m100pg.c 调度器任务（消费者） */
 void m100pg_task(void)
 {
-    if (ringbuffer_is_empty(&usart_rb)) return;
-    ringbuffer_read(&usart_rb, usart_read_buffer, usart_rb.itemCount);
-    /* 解析... */
+    uint16_t len = m100pg_ring_read(m100pg_forward_buffer,
+                                    sizeof(m100pg_forward_buffer));
+    if (len) m100pg_proto_feed(&m100pg_proto, m100pg_forward_buffer, len);
 }
 ```
 
@@ -100,12 +101,12 @@ void mpu6050_task(void)
 
 | 类别 | 规则 | 示例 |
 |------|------|------|
-| DMA 缓冲区 | `<外设>_<方向>_dma_buffer` | `usart_rx_dma_buffer`, `dma_buff`（历史遗留） |
-| 环形缓冲区实例 | `<用途>_rb` | `usart_rb` |
+| DMA 缓冲区 | `<模块>_<方向>_dma_buffer` 或模块私有 static 数组 | `m100pg_rx_dma_buffer`, `dma_buff`（ADC 历史名） |
+| 环形缓冲区实例 | 模块私有 static 数组 + `<模块>_ring_*` 接口，不暴露给 `.h` | `m100pg_rx_ring`, `asrpro_rx_ring` |
 | 传感器原始值 | 简短三字母 + 轴 | `aacx/aacy/aacz`（加速度）, `gyrox/gyroy/gyroz`（角速度） |
 | 解算结果 | 物理量全称 | `pitch`, `roll`, `yaw`, `AVM`, `GVM`（向量模） |
-| 事件标志 | `<事件>_flag` | `fall_flag`（跌倒） |
-| 缓冲区尺寸宏 | `<模块>_BUFFER_SIZE` 或 `RINGBUFFER_SIZE` | `RINGBUFFER_SIZE`, `BUFFER_SIZE` |
+| 事件标志 | `<事件>_flag` 或模块 `is_*` 接口 | `mpu6050_is_fall_alarm()`, `mpu6050_is_collision_alarm()` |
+| 缓冲区尺寸宏 | `<模块>_<用途>_SIZE`，模块前缀强制 | `M100PG_RX_RING_SIZE`, `ASRPRO_LINE_BUFFER_SIZE` |
 
 **跨模块访问 extern 变量** 必须在 `.h` 用 `extern` 声明，在 `.c` 定义一次，禁止在多个 `.c` 重复定义。
 
@@ -117,9 +118,9 @@ void mpu6050_task(void)
 
 2. **中断中调用 `printf`**：中断回调应只做"搬运"（如把 DMA 缓冲拷进环形缓冲），不要在中断里解析或打印，否则延长中断驻留、丢失后续数据。参考 `HAL_UARTEx_RxEventCallback`。
 
-3. **环形缓冲区满时丢写未告警**：当前 `ringbuffer_write` 满则返回 `-1` 静默丢弃，生产者未检查返回值会静悄悄丢数据。修改代码时若对数据完整性要求高，应检查返回值或增加满告警标志。
+3. **环形缓冲区满时丢写未告警**：模块私有 ring write 满时通常静默丢弃；生产者必须检查返回值或维护溢出标志（参考 `APP/m100pg.c::m100pg_rx_overflow`），并在调度器任务中以 `printf("[4G] rx ring overflow\r\n")` 等方式可观测，避免静悄悄丢数据。
 
-4. **DMA 缓冲清零时机错误**：UART DMA 回调中 `memset(usart_rx_dma_buffer, 0, ...)` **必须**在 `ringbuffer_write` 之后执行，否则会擦掉未入队的数据。
+4. **DMA 缓冲清零时机错误**：UART DMA 回调中 `memset(rx_dma_buffer, 0, ...)` **必须**在写入私有 ring buffer 之后执行，否则会擦掉未入队的数据。
 
 5. **`extern` 声明缺失 / 重复定义**：新模块的全局变量应在 `.h` 用 `extern`、在 `.c` 定义一次。忘记 `extern` 会链接错误；多处定义会"multiple definition"链接失败。
 
@@ -207,6 +208,90 @@ HAL_I2C_Mem_Read(&hi2cX, addr, reg, I2C_MEMADD_SIZE_8BIT,
 - 实机逐个恢复任务：`m100pg_task` + 单个传感器运行至少 10 秒，USART1 仍能看到 `[4G] task alive`，云端下发能出现 `[4G RX]`。
 - 断开或拔掉目标 I2C 传感器后，系统允许该传感器数据为 0/invalid，但 4G 上传和下发不能停止。
 
+## Scenario: MPU6050 Safety Alarm Fanout
+
+### 1. Scope / Trigger
+
+适用于 `APP/mpu6050.c` 基于姿态/加速度/角速度产生本地安全报警，并把报警状态扇出到 LCD、4G telemetry、RGB 本地输出的跨模块变更。目标是保守少误报：侧放头盔不能单独触发倒地报警，倒地和激烈碰撞必须可独立触发并可同时上报。
+
+### 2. Signatures / Payload Fields
+
+```c
+uint8_t mpu6050_is_fall_alarm(void);
+uint8_t mpu6050_is_collision_alarm(void);
+uint8_t mpu6050_get_alarm_flags(void);  /* bit0=fall, bit1=collision */
+void mpu6050_clear_alarm(void);
+
+void helmet_alarm_set_base_led(rgb_led_color_t color);
+void helmet_alarm_task(void);
+```
+
+`helmet_telemetry_t` 必须包含并上传：
+
+```c
+uint8_t fall;       /* 0/1，来自 mpu6050_is_fall_alarm() */
+uint8_t collision;  /* 0/1，来自 mpu6050_is_collision_alarm() */
+```
+
+上行 payload 字段顺序包含：
+
+```text
+pitch=%.1f,roll=%.1f,yaw=%.1f,fall=%u,collision=%u,hr=%ld,spo2=%ld
+```
+
+### 3. Contracts
+
+- `mpu6050_task()` 是报警状态唯一写者；LCD、4G、RGB 只能通过 `mpu6050_is_*()` 或 `mpu6050_get_alarm_flags()` 读取。
+- 倒地报警不得由姿态角单独触发；必须先出现低重力或冲击证据，再持续确认倾斜且低角速度的稳定姿态。
+- `collision_alarm` 与 `fall_alarm` 独立；碰撞短保持自动清除，倒地长保持后需要恢复姿态/运动稳定才自动清除。
+- 上电或 MPU6050 重新可用后的首帧 AVM 只建立基线，不参与冲击判断，避免 `0 -> 1g` 启动跳变误报。
+- `helmet_alarm_task()` 只负责本地 RGB 输出仲裁；云端 LED 下发必须调用 `helmet_alarm_set_base_led()`，不得绕过报警模块直接写 RGB。
+- 报警期间 RGB 必须红灯全亮/全灭快闪；报警解除后恢复最近一次云端基础 LED 颜色。
+- `m100pg_bsp_collect_sample()` 只读取缓存快照，不等待 MPU6050 刷新；任一报警存在时 telemetry 的 `led` 镜像可覆盖为 `red`。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| 上电静止侧放后触发 `FALL` | 首帧 AVM 基线和倒地状态机 | 首帧不参与 `avm_delta`，姿态角不能绕过运动事件直接报警 |
+| 轻微拿放或桌面侧放误报倒地 | 阈值和确认窗口 | `MPU6050_FALL_IMPACT_*`、`MPU6050_FALL_CONFIRM_MS` 保守，侧放无冲击时 LCD 仍为 `OK` |
+| 碰撞后 LCD/4G 很快看不到报警 | 碰撞保持和本地展示保持 | `collision_flag` 有短保持；RGB 至少快闪本地展示窗口 |
+| 云端 LED 下发覆盖报警闪烁 | RGB 调用路径 | `rg "rgb_led_set_|rgb_led_off\\(" APP --glob "!APP/rgb_led.c" --glob "!APP/helmet_alarm.c"` 只能命中头文件声明 |
+| 4G 上传无 `fall/collision` 字段 | telemetry 协议 | `m100pg_protocol.c` 格式串和 `helmet_telemetry_t` 字段同步，`M100PG_PROTO_TX_BUF` 足够 |
+| LCD 显示乱码或编译字符串报错 | LCD 中文标签编码 | `APP/lcd_app.c` 中文运行时字符串使用 UTF-8 hex escape |
+
+### 5. Good/Base/Bad Cases
+
+**Good：事故级倒地**
+
+```text
+直立 -> 软垫落下/冲击 -> 明显倾斜静止 >= 1.5s
+期望：fall=1, collision 可同时为 1，LCD 显示 FALL 或 FALL+HIT，RGB 红灯快闪。
+```
+
+**Base：普通侧放**
+
+```text
+手动轻放到侧面，无明显冲击
+期望：fall=0, collision=0，LCD 显示 OK，云端 fall=0,collision=0。
+```
+
+**Bad：姿态角直接报警**
+
+```c
+fall_flag = ((fabs(pitch) > 60) || (fabs(roll) > 60));
+```
+
+该写法会把侧放头盔误判为倒地，禁止恢复。
+
+### 6. Tests Required
+
+- Keil Build 通过，`APP/helmet_alarm.c` 已加入 `MDK-ARM/helmet.uvprojx`。
+- `git diff --check` 通过；本轮触及 `APP/*.h` 有 include guard；本轮触及源码 UTF-8 无 BOM 且 LF。
+- `rg "HAL_MAX_DELAY|0xFFFFFF|printf" APP/mpu6050.c APP/helmet_alarm.c APP/helmet_alarm.h APP/lcd_app.c` 不得命中新增高频阻塞或打印；`snprintf` 命中可接受。
+- 台架测试普通侧放、轻拿轻放、软垫碰撞、软垫倒地、倒地恢复、`FALL+HIT` 同时报警。
+- 4G telemetry 至少观察一帧包含 `fall=0/1,collision=0/1`；报警时本地 RGB 快闪不影响云端下发基础颜色恢复。
+
 ### 7. Wrong vs Correct
 
 #### Wrong
@@ -286,6 +371,7 @@ USART1 PA9/PA10       -> USB-TTL 调试口
 - `m100pg_rx_event_callback()` 只处理 `USART2`，中断路径只允许：停止 DMA、裁剪 `size`、写 ring buffer、记录计数、清 DMA 临时缓冲、重启 DMA。
 - `m100pg_task()` 才能打印、转发、解析；关闭 `debug_forward` 后，上行发送和下行接收仍应工作。
 - `m100pg_send_bytes()` 只能证明 STM32 已把字节送到 USART2 TX，不等价于云端已收到。
+- 上电默认执行器状态必须与协议镜像默认值和 Web 默认状态一致。当前合同是 `APP/rgb_led.c::rgb_led_init()` 默认关闭，`APP/m100pg_protocol.c::m100pg_proto_init()` 默认 `mirror_led = HELMET_LED_OFF`，Web 默认/首帧上传显示 `led=off`。
 
 ### 4. Validation & Error Matrix
 
@@ -298,6 +384,7 @@ USART1 PA9/PA10       -> USB-TTL 调试口
 | 云端下发，USART1 无 `[4G RX]` | 下行物理链路，不要先改协议解析或 LED 逻辑 | 先用 PA2->PA3 自环证明 STM32 USART2 RX/DMA 正常，再验证 DTU TXD->PA3、共地、云端确实下发、DTU 处于透传输出状态 |
 | 自环有 `[4G RX]`，接 DTU 无 `[4G RX]` | DTU 下行链路 | DTU TXD 电平、TX/RX 是否交叉、云平台是否把命令发到设备下行、DTU 是否在线且未只开上行 |
 | 有 `[4G RX]` 但 LED 命令无动作 | 协议内容 | USART1 原文是否完整等于 `LED_OFF` / `LED_ON` 等命令；若输出 `downlink ignored`，先修云端 payload 格式 |
+| 上传帧一直 `led=off`，但实机上电 LED 亮 | 默认态不同步或未复位烧录 | 断电重启或按复位键后确认 `[RGB] init off`；检查 `rgb_led_init()`、`m100pg_proto_init()`、Web 默认状态三者一致 |
 | 只收到第一帧 | DMA 重启 | RxEvent 后必须重新调用 `HAL_UARTEx_ReceiveToIdle_DMA()` |
 | 数据偶发截断 | ring buffer 容量/消费周期 | 中断侧不阻塞，任务侧短周期消费，溢出需有可观测标志 |
 | DTU 单独接 USB-TTL 正常，接 STM32 不正常 | STM32 侧 RX/TX/GND | 用 PA2->PA3 自环验证 STM32 USART2 DMA，再接 DTU |
@@ -343,6 +430,22 @@ UP,test=hello
 
 这只能说明 STM32 调用了发送接口，不能证明 DTU 已收到，更不能证明云端已收到。
 
+**Good：默认态一致**
+
+```text
+上电/复位 -> [RGB] init off -> 首帧 telemetry led=off
+Web 下发 led_on  -> LED 白色点亮，后续 telemetry led=white
+Web 下发 led_off -> LED 熄灭，后续 telemetry led=off
+```
+
+**Bad：默认态分裂**
+
+```text
+rgb_led_init() 点亮白色，但 m100pg_proto_init() 的 mirror_led=HELMET_LED_OFF
+```
+
+这会导致实物 LED 亮而 Web/串口上传持续显示 `led=off`，演示和调试都会被误导。
+
 ### 6. Tests Required
 
 - 上电后 USART1 看到 `[4G] usart2 rx dma ready`。
@@ -352,6 +455,7 @@ UP,test=hello
 - DTU 上行测试：串口助手触发发送 `UP,test=hello`，云端必须收到。
 - DTU 下行测试：云端下发文本，USART1 必须出现 `[4G RX]` 和原文。
 - LED 下发测试只能在 `[4G RX]` 已出现后执行；否则不得判断 `LED_OFF` 或 RGB GPIO 有问题。
+- 上电默认态测试：烧录后必须断电重启或按复位键，USART1 看到 `[RGB] init off`，实机 LED 默认关闭，首帧上传 `led=off`。
 - 连续下发 5 次，`events` 递增，不能只收到第一帧。
 - 关闭 `debug_forward` 后，USART1 不输出，但上行发送和下行 ring buffer 消费不能被破坏。
 
@@ -378,5 +482,170 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 void m100pg_task(void)
 {
     /* 从 ring buffer 取数据，再调试转发或解析 */
+}
+```
+
+---
+
+## Scenario: ASRPro USART1 Offline Voice Commands
+
+### 1. Scope / Trigger
+
+适用于 ASRPro / 天问离线语音模块接入 STM32 USART1，并把语音固件输出的固定文本命令映射到本地执行器。
+
+触发条件：
+- 新增或修改 `APP/asrpro.c/.h`。
+- 修改 USART1 所有权、`printf` 重定向、USART1 IRQ、语音命令字典。
+- 新增语音控制 LED、电机或其他本地执行器。
+
+### 2. Signatures
+
+ASRPro 模块公开 API：
+
+```c
+uint8_t asrpro_init(void);
+void asrpro_task(void);
+void asrpro_uart_rx_cplt_callback(UART_HandleTypeDef *huart);
+```
+
+HAL / CubeMX 用户入口：
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart);
+void USART1_IRQHandler(void);
+```
+
+编译期开关：
+
+```c
+#define ASRPRO_ENABLE_COMMAND_EXECUTION    1U
+#define ASRPRO_ENABLE_USART1_DEBUG         0U
+```
+
+硬件合同：
+
+```text
+ASRPro ASR_TX -> STM32 PA10 (USART1_RX)
+ASRPro ASR_RX -> STM32 PA9  (USART1_TX)
+USART1        -> 115200-8N1
+```
+
+命令字典：
+
+```text
+led_on          -> helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE)
+led_off         -> helmet_alarm_set_base_led(RGB_LED_COLOR_OFF)
+motor_speed_0   -> pwm_motor_set_speed(0)
+motor_speed_1   -> pwm_motor_set_speed(33)
+motor_speed_2   -> pwm_motor_set_speed(66)
+motor_speed_3   -> pwm_motor_set_speed(100)
+```
+
+### 3. Contracts
+
+- 正常固件中 USART1 是 ASRPro 专用串口，不再作为默认日志通道。
+- `ASRPRO_ENABLE_USART1_DEBUG` 默认必须为 `0U`；打开后才允许 `printf` / M100PG debug forward 向 PA9 输出。
+- `ASRPRO_ENABLE_COMMAND_EXECUTION` 默认必须为 `1U`；临时串口调试需要防误触发时可设为 `0U`。
+- USART1 采用单字节中断接收；`HAL_UART_RxCpltCallback()` 只允许把字节放入静态缓冲并重启 `HAL_UART_Receive_IT()`。
+- `HAL_UART_ErrorCallback()` 必须在 USART1 错误后重启单字节接收，避免噪声/溢出后接收链路永久停止。
+- 命令解析和执行器控制必须在 `asrpro_task()` 调度器任务中执行，不得在中断回调中调用 LED、电机、`printf` 或长阻塞 HAL。
+- 解析只接受固定小写命令；允许首尾 ASCII 空白、`\r`、`\n`，不做中文、大小写、模糊或部分匹配。
+- LED 控制必须走 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` 或写 RGB GPIO；安全报警红灯保持优先级。
+- 电机控制必须复用 `pwm_motor_set_speed()`，档位映射保持 `{0, 33, 66, 100}`，与 4G 命令模型一致。
+- 新增 `.c` 必须登记到 `APP/bsp_system.h`、`APP/scheduler.c`、`Core/Src/main.c` 和 `MDK-ARM/helmet.uvprojx`。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| ASRPro 发命令无动作 | USART1 IRQ 和接收启动 | `asrpro_init()` 已在 `MX_USART1_UART_Init()` 后调用，`USART1_IRQHandler()` 调用 `HAL_UART_IRQHandler(&huart1)` |
+| 只能收到第一条命令 | 接收重启 | `asrpro_uart_rx_cplt_callback()` 每次完成后重新调用 `HAL_UART_Receive_IT()` |
+| 串口噪声后再也收不到命令 | 错误恢复 | `HAL_UART_ErrorCallback()` 识别 USART1 并重启单字节接收 |
+| 语音模块收到大量无关文本 | USART1 调试开关 | `ASRPRO_ENABLE_USART1_DEBUG=0U`，`fputc()` 默认不向 `huart1` 发送，M100PG debug forward 默认关闭 |
+| `LED_ON` 或中文文本触发动作 | 解析过宽 | 搜索解析逻辑，必须固定小写命令匹配，无大小写转换和模糊匹配 |
+| 报警红灯被 `led_off` 关闭 | LED 绕过仲裁 | ASR 只能调用 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` / `rgb_led_set_color()` |
+| `motor_speed_4` 启动电机 | 档位边界 | 只接受单字符 `'0'..'3'`，其他命令不触发执行器 |
+| 4G 下发失效 | UART 回调混淆 | USART1 使用 `HAL_UART_RxCpltCallback()`，USART2/M100PG 继续使用 `HAL_UARTEx_RxEventCallback()` |
+
+### 5. Good/Base/Bad Cases
+
+**Good：ASR 命令行控制**
+
+```text
+USART1 RX 输入: " led_on\r\n"
+期望: 调用 helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE)，报警中仍显示红灯优先。
+```
+
+**Base：电机三档**
+
+```text
+USART1 RX 输入: "motor_speed_3\n"
+期望: 调用 pwm_motor_set_speed(100)。
+```
+
+**Base：临时调试**
+
+```text
+ASRPRO_ENABLE_COMMAND_EXECUTION=0U
+ASRPRO_ENABLE_USART1_DEBUG=1U
+期望: USART1 可恢复 printf 调试，输入 motor_speed_3 不启动电机。
+```
+
+**Bad：中断内执行命令**
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        pwm_motor_set_speed(100U);
+        printf("voice ok\r\n");
+    }
+}
+```
+
+**Bad：绕过安全报警**
+
+```c
+if (memcmp(cmd, "led_off", 7U) == 0) {
+    rgb_led_off();
+}
+```
+
+### 6. Tests Required
+
+- `git diff --check` 通过；新增 `APP/asrpro.h` 含 `ASRPRO_H` include guard。
+- 搜索 `APP/asrpro.c` 不得命中 `printf`、`HAL_Delay`、`HAL_MAX_DELAY`、`malloc`、`free`。
+- 搜索 UART 回调：`HAL_UART_RxCpltCallback` 只负责 USART1 ASRPro，`HAL_UARTEx_RxEventCallback` 仍只分发 USART2 M100PG。
+- Keil Build 通过，`APP/asrpro.c` 已加入 `MDK-ARM/helmet.uvprojx`。
+- 实机或串口助手向 PA10 注入 `led_on\n`、`led_off\r\n`、` motor_speed_3 \n`，确认 LED 基础状态和电机档位变化。
+- 注入 `LED_ON\n`、`motor_speed_4\n`、`motor_speed_33\n`、中文文本，确认无执行器动作。
+- 报警状态下发送 `led_off\n`，确认红灯报警输出不被关闭。
+- 默认 `ASRPRO_ENABLE_USART1_DEBUG=0U` 时，确认 PA9 不输出启动日志；临时打开后确认 USART1 调试输出恢复。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1) {
+        parse_and_execute(asr_byte);   /* 中断中解析和控制执行器 */
+    }
+}
+```
+
+#### Correct
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    asrpro_uart_rx_cplt_callback(huart);
+}
+
+void asrpro_task(void)
+{
+    /* 从静态缓冲取完整行，裁剪 CR/LF/首尾空白，再执行固定命令 */
 }
 ```

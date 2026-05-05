@@ -1,0 +1,5 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "new APP module registration and hardware mapping boundaries"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "cooperative scheduler nonblocking runtime rules"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP quality gate and CubeMX boundary rules"}

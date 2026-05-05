@@ -3,13 +3,18 @@ name: Quality Gate
 on:
   push:
     branches: [main, dev]
-    paths: [APP/**, README.md, CLAUDE.md]
+    paths:
+      - APP/**
+      - README.md
+      - CLAUDE.md
+      - CHANGELOG.md
+      - .github/workflows/**
   pull_request:
     branches: [main]
-    paths: [APP/**, README.md, CLAUDE.md]
 
 jobs:
-  check:
+  static-checks:
+    name: 静态检查
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,3 +60,111 @@ jobs:
             fi
           done
           exit $fail
+
+  changelog-sync:
+    name: CHANGELOG 同步检查
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验 CHANGELOG.md 与 PR 类型一致
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -e
+          echo "PR 标题: $PR_TITLE"
+          # 抓取 PR 改动文件
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "改动文件:"
+          echo "$CHANGED"
+
+          # 判断类型
+          IS_RELEASE=0
+          IS_FEAT_FIX=0
+          case "$PR_TITLE" in
+            release:*|"chore(release):"*) IS_RELEASE=1 ;;
+            feat*|fix*|perf*|refactor*) IS_FEAT_FIX=1 ;;
+          esac
+
+          # APP/ 实质代码改动也算 feat/fix 类
+          if echo "$CHANGED" | grep -qE '^APP/.*\.(c|h)$'; then
+            if [ "$IS_RELEASE" -eq 0 ]; then
+              IS_FEAT_FIX=1
+            fi
+          fi
+
+          if [ "$IS_RELEASE" -eq 1 ]; then
+            # Release PR：要求新版本段已在 [Unreleased] 之上、且 [Unreleased] 已重新置空
+            VERSION=$(echo "$PR_TITLE" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/^v//')
+            if [ -z "$VERSION" ]; then
+              echo "::error::Release PR 标题缺少版本号 (期望形如 'release: v0.8.0')"
+              exit 1
+            fi
+            echo "Release PR 目标版本: v$VERSION"
+            if ! grep -qF "## [${VERSION}] - " CHANGELOG.md; then
+              echo "::error file=CHANGELOG.md::Release PR 必须包含 '## [${VERSION}] - YYYY-MM-DD' 段落"
+              exit 1
+            fi
+            # [Unreleased] 必须存在且其下的有效内容应为空（直到下一个 ##）
+            UNRELEASED_BODY=$(awk '
+              /^## \[Unreleased\]/ { found=1; next }
+              found && /^## \[/    { exit }
+              found                { print }
+            ' CHANGELOG.md | tr -d '[:space:]')
+            if [ -z "$(grep -F '## [Unreleased]' CHANGELOG.md)" ]; then
+              echo "::error file=CHANGELOG.md::缺少顶部 '## [Unreleased]' 段，发版后必须保留空段供下一轮累积"
+              exit 1
+            fi
+            if [ -n "$UNRELEASED_BODY" ]; then
+              echo "::warning file=CHANGELOG.md::[Unreleased] 段非空，请确认未发布的条目是否应纳入本次 v${VERSION}"
+            fi
+            echo "✓ Release PR CHANGELOG 校验通过"
+          elif [ "$IS_FEAT_FIX" -eq 1 ]; then
+            # 普通 feat/fix PR：要求 PR diff 包含 CHANGELOG.md 的变化
+            if ! echo "$CHANGED" | grep -qE '^CHANGELOG\.md$'; then
+              echo "::error file=CHANGELOG.md::feat/fix/perf/refactor 类 PR 必须更新 CHANGELOG.md 的 [Unreleased] 段；如无需记录请改用 chore/docs 类型，或在 PR 描述明确说明"
+              exit 1
+            fi
+            # 进一步校验改动落在 [Unreleased] 段下
+            DIFF_AT_UNRELEASED=$(git diff "$BASE_SHA" "$HEAD_SHA" -- CHANGELOG.md | awk '
+              /^@@/                          { in_hunk=1; under=0; next }
+              in_hunk && /^\+## \[Unreleased\]/ { under=1 }
+              in_hunk && /^\+## \[/ && !/Unreleased/ { under=0 }
+              in_hunk && under && /^\+[^+]/   { print }
+            ')
+            if [ -z "$DIFF_AT_UNRELEASED" ]; then
+              echo "::warning file=CHANGELOG.md::CHANGELOG.md 有改动但未检测到 [Unreleased] 段下的新增行，请确认改动位置"
+            fi
+            echo "✓ 普通 PR CHANGELOG 同步检查通过"
+          else
+            echo "✓ 非 feat/fix 类 PR，跳过 CHANGELOG 同步检查"
+          fi
+
+  conventional-commits:
+    name: Conventional Commits 校验
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: 校验 PR 标题
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # 允许的类型: feat fix docs style refactor perf test chore ci build revert release
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert|release)(\([a-z0-9_-]+\))?!?: .+'
+          if ! echo "$PR_TITLE" | grep -qE "$PATTERN"; then
+            echo "::error::PR 标题 '$PR_TITLE' 不符合 Conventional Commits 规范"
+            echo "格式: <type>(<scope>): <description>"
+            echo "  type:  feat | fix | docs | style | refactor | perf | test | chore | ci | build | revert | release"
+            echo "  scope: 可选，模块名（如 asrpro / m100pg / scheduler）"
+            echo "示例:"
+            echo "  feat(asrpro): 接入离线语音控制"
+            echo "  fix(scheduler): 避免传感器阻塞 4G 下发"
+            echo "  release: v0.8.0"
+            exit 1
+          fi
+          echo "✓ PR 标题符合 Conventional Commits"

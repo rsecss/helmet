@@ -1,0 +1,40 @@
+# git-cliff 配置
+# 用于在 Release Note 末尾生成"完整提交记录"附录。
+# 主体的 user-facing 变更由 CHANGELOG.md 维护，本文件仅负责自动列出 commit。
+# 本地预览：git cliff --unreleased --strip header --config cliff.toml
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+#### {{ group }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim }} ([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/rsecss/helmet/commit/{{ commit.id }}))
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = false
+filter_commits = true
+tag_pattern = "v[0-9]*"
+sort_commits = "newest"
+
+commit_parsers = [
+  { message = "^feat", group = "🚀 Features" },
+  { message = "^fix", group = "🐛 Bug Fixes" },
+  { message = "^perf", group = "⚡ Performance" },
+  { message = "^refactor", group = "🏗️ Refactors" },
+  { message = "^docs", group = "📄 Documentation" },
+  { message = "^test", group = "✅ Tests" },
+  { message = "^ci", group = "🔧 CI" },
+  { message = "^chore\(release\)", skip = true },
+  { message = "^chore", group = "🧹 Chores" },
+  { message = "^merge", skip = true },
+  { message = "^Merge", skip = true },
+]

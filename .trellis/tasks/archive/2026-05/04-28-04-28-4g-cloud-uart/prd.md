@@ -23,6 +23,9 @@
 - PA8 当前被 DHT11 用作单总线数据脚；PRD 早期把 PA8 当作 LED 控制脚已废弃，Phase 2 改为调用三色 LED 模块接口。
 - 2026-04-29 用户确认：4G 基础调试已完成；正式上云封包、下发解析、LED 控制前，需要先完成三色 LED 模块开发和调试。
 - 已创建前置子任务：`.trellis/tasks/04-29-tri-color-led`。
+- 2026-05-05 用户确认：4G 模块已配置为 WebSocket 客户端透传，目标 Web 端为 `websocket.vaple.cc`，实机测试已能正常上发数据和下发数据。
+- 2026-05-05 用户确认：联合调试已成功，多路传感器采集数据可通过 4G 模块上传到 Web 并打印，Web 端发送 LED 相关指令后设备能正常接收和执行。
+- 2026-05-05 用户补充：其他模块显示的数据正常，当前问题限定为上电默认 LED 状态与云端/上传调试状态不一致。
 
 ## Assumptions
 
@@ -35,6 +38,7 @@
 ## Open Questions
 
 - 用户已确认上传帧使用默认字段集合：温湿度、烟雾、姿态、心率、血氧、LED 状态。
+- 上电默认 LED 状态已确认采用关闭，与 Web 默认 `led_off` 和上传帧 `led=off` 对齐。
 
 ## Requirements
 
@@ -53,24 +57,31 @@
 - 上传帧默认字段：`temp`、`hum`、`mq2`、`pitch`、`roll`、`yaw`、`hr`、`spo2`、`led`。
 - 上传帧示例：`UP,temp=25,hum=60,mq2=123,pitch=1.2,roll=0.5,yaw=88.0,hr=78,spo2=98,led=1\r\n`。
 - 默认上传周期：1000ms，可通过 `M100PG_UPLOAD_PERIOD_MS` 宏调整。
+- 上电默认 LED 状态必须与云端默认控制状态和上传帧 `led` 字段一致，避免演示时出现云端显示关闭但实物点亮。
+- 上电默认 LED 状态采用关闭：实机 LED、Web 默认 `led_off`、上传帧 `led=off` 三者对齐；后续由 Web 下发 `led_on` 或 `led_color_*` 后再点亮。
 
 ## Acceptance Criteria
 
 - [x] 单片机能通过 USART2 发送封包后的传感器数据。
 - [x] 上传帧包含 `temp/hum/mq2/pitch/roll/yaw/hr/spo2/led` 字段，缺失数据用清晰默认值或无效值占位。
-- [ ] USART2 收到的数据能转发到 USART1 调试观察。
-- [ ] 关闭 4G 调试转发后，上传和解析功能仍能正常工作。
+- [x] USART2 收到的数据能转发到 USART1 调试观察。
+- [x] 关闭 4G 调试转发后，上传和解析功能仍能正常工作。
 - [x] 合法下发命令能被解析并控制 LED 状态。
 - [x] `LED_ON`、`LED_OFF` 能分别打开白色 LED 和关闭 LED。
 - [x] `LED_WHITE`、`LED_RED`、`LED_GREEN` 能分别切换三色 LED 颜色。
-- [ ] 非法/不完整数据不会误触发控制动作。
+- [x] 非法/不完整数据不会误触发控制动作。
 - [x] 上传/解析接口可被调度器或主循环稳定调用。
 - [x] USART2 空闲中断 DMA 接收能连续多次触发，不能只收到第一帧。
-- [ ] RingBuffer 溢出时不阻塞中断，不解析半截脏数据。
+- [x] RingBuffer 溢出时不阻塞中断，不解析半截脏数据。
+- [x] 上电后实机 LED 默认状态、Web 默认指令状态、上传帧 `led` 字段三者一致。
 
 ## Manual Verification
 
 - 2026-04-29：实机测试确认全量任务下上传正常，云端下发可正常触发 USART2 接收、协议解析和 LED 控制。
+- 2026-05-05：实机测试确认 4G 模块使用 WebSocket 客户端透传模式连接 `websocket.vaple.cc`，Web 端可收到 STM32 上发数据，Web 端下发数据也能到达设备链路。
+- 2026-05-05：实机联调确认多路传感器上传和 Web 端 LED 控制均正常；发现上电云端默认/日志为 `led_off`，但实机 LED 默认点亮。
+- 2026-05-05：修改 RGB LED 上电默认关闭后，重新上电复位并联合调试成功；多路传感器通过 4G 上传到 Web 正常，Web 端下发 `led_on` / `led_off` 可正常控制 LED，上传帧 LED 状态与实物一致。先前“下发不起作用、日志一直 `led=off`”由未上电复位导致。
+- 2026-05-05：归档前代码复核确认两项防御逻辑已实现（`m100pg_protocol.c:dispatch_line()` 严格 `memcmp` 等长匹配 + 未知命令走 `on_unknown` 不触发控制；`m100pg.c:m100pg_ring_write()` 满则置 `rx_overflow` 并 break，不阻塞中断，`m100pg_proto_feed()` 溢出跳至下一 `\n` 丢弃半截数据）。本次未做专项的非法命令注入和强制 RingBuffer 溢出压测，按代码层防御视为达成；如后续接入语音模块或扩大命令字典，需补回归测试。
 
 ## Definition of Done (team quality bar)
 
@@ -91,6 +102,7 @@
 - 语雀链接通过 Grok fetch/search 未能获取公开内容，暂不能从外部确认协议帧格式。
 - `资料.md` 确认 M100MG-B1/M100PG 类 DTU 为单 TTL 串口 DTU，适合设备控制、状态检测、传感器数据采集等通过 4G 与服务器通信的场景。
 - `资料.md` 确认串口兼容 3.3V/5V 电平，波特率范围 1200-460800，支持 TCP/UDP/MQTT/HTTP/WebSocket 等，但未定义业务协议。
+- 当前联网方案使用 4G DTU 的 WebSocket 客户端透传能力；STM32 侧继续发送/接收 USART2 文本帧，不在 STM32F103 上实现 WebSocket 协议栈。
 - `APP/m100pg.c` / `APP/m100pg.h` 作为 4G 硬件链路入口，覆盖 USART2 DMA、RingBuffer、上传调度和命令执行。
 - `APP/m100pg_protocol.c` / `APP/m100pg_protocol.h` 作为薄协议层，覆盖上传帧格式化和下发命令识别。
 - CubeMX 已生成 USART2：`huart2`、`MX_USART2_UART_Init()`、PA2/PA3、USART2 IRQ、DMA1 Channel6 RX、`MX_USART2_UART_Init()` 调用已落盘。
@@ -102,6 +114,7 @@
 - 2026-04-29 调试证据：调度器只保留 `m100pg_task` 时，云端下发 `LED_GREEN` 可出现 `[4G RX]` 并正确控制 LED，说明 USART2 DMA、协议解析、LED 控制链路正常；全量任务下无响应，阻塞源应在其他传感器任务中逐个恢复定位。
 - 2026-04-29 调试证据：`mq2_task`、`dht11_task` 与 4G 同跑正常；`mpu6050_task`、`max30102_task` 分别会导致 4G 下发无响应。修复方向为 I2C 有限超时、初始化 `ready` 门控、移除高频传感器日志。
 - 设计约束：建议新增 `debug_uart_write()` / `m100pg_set_debug_forward()` 一类边界，4G 模块只调用调试抽象，不直接绑定 USART1。
+- 2026-05-05 根因：`APP/rgb_led.c` 的 `rgb_led_init()` 上电调用 `rgb_led_set_white()`，`Core/Src/main.c` 启动日志也写明 `[RGB] init white`；但 `APP/m100pg_protocol.c` 的 `m100pg_proto_init()` 将 `mirror_led` 初始化为 `HELMET_LED_OFF`，上传帧因此持续显示 `led=off`。这是 LED 硬件默认态与 4G 协议镜像默认态不同步，不是传感器采集异常。
 
 ## Reference: GD32_HAL uart_app
 
@@ -283,6 +296,17 @@ LED_GREEN
 - 优点：无需额外协议栈，串口助手和云平台都能直接发送/观察。
 - 优点：LED 控制解析可复用 GD32 的回调解耦思路。
 - 代价：没有二进制校验和复杂分包能力；MVP 通过完整字符串匹配和长度边界降低误触发风险。
+
+## Decision (ADR-lite): 上电默认 LED 状态
+
+**Context**: 2026-05-05 联调发现 Web/串口上传显示 `led=off`，云端调试窗口默认下发/展示也是 `led_off`，但实机上电后 RGB LED 由 `rgb_led_init()` 点成白色。传感器数据和 Web 控制链路已确认正常，问题集中在 LED 硬件默认态与协议镜像默认态不同步。
+
+**Decision**: 上电默认关闭 RGB LED。`rgb_led_init()` 初始化 GPIO 后调用 `rgb_led_off()`，启动日志/注释同步改为默认关闭；协议库继续保持 `mirror_led = HELMET_LED_OFF`。
+
+**Consequences**:
+- 优点：实机状态、上传帧 `led=off`、Web 默认 `led_off` 三者一致，演示时不会出现“云端显示关闭但实物亮”的偏差。
+- 优点：改动集中在 RGB LED 模块默认状态和启动日志，不改变 4G 协议命令、传感器采样或 Web payload 格式。
+- 代价：失去上电白灯自检效果；如需硬件自检，应后续单独设计短暂自检并在自检结束后回到关闭状态。
 
 ## Implementation Plan
 
