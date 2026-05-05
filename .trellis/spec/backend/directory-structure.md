@@ -28,13 +28,21 @@ helmet/
 ├── APP/                              # 应用层业务代码（新模块放这里）
 │   ├── bsp_system.h                  # 应用层统一头文件入口（聚合所有模块头）
 │   ├── scheduler.c / .h              # 协作式任务调度器
-│   ├── ringbuffer.c / .h             # 通用环形缓冲区
 │   ├── mq2.c / .h                    # MQ2 烟雾传感器（ADC+DMA）
 │   ├── dht11.c / .h                  # DHT11 温湿度传感器（单总线）
-│   ├── mpu6050.c / .h                # MPU6050 六轴姿态传感器（I2C+DMP）
-│   ├── mpu6050_inv_mpu*.c / .h       # InvenSense 官方驱动（精简版）
-│   ├── m100pg.c / .h                 # M100PG 4G+GPS 模块（UART2 DMA）
-│   └── gps.c / .h                    # NMEA 协议 GPS 解析
+│   ├── mpu6050.c / .h                # MPU6050 六轴姿态 + 跌倒/碰撞报警
+│   ├── mpu6050_inv_mpu*.c / .h       # InvenSense 官方驱动（精简版 + DMP）
+│   ├── max30102.c / .h               # MAX30102 心率血氧传感器（I2C2）
+│   ├── rgb_led.c / .h                # 共阴三色 RGB LED 驱动
+│   ├── helmet_alarm.c / .h           # 本地安全报警仲裁（RGB 唯一直写者）
+│   ├── pwm_motor.c / .h              # TB6612FNG + 风扇 PWM 调速
+│   ├── m100pg.c / .h                 # M100PG 4G DTU 链路（USART2 DMA）
+│   ├── m100pg_bsp.c / .h             # 4G 协议 ↔ 板级驱动桥接
+│   ├── m100pg_protocol.c / .h        # 上行 telemetry + 下行命令字典
+│   ├── asrpro.c / .h                 # ASRPro 离线语音（USART1 IT）
+│   ├── st7735.c / .h                 # ST7735 软件 SPI TFT 驱动
+│   ├── lcd_app.c / .h                # 6 行 HUD 应用
+│   └── lcd_font_lib.h                # ASCII + 局部 UTF-8 字模表
 ├── Core/                             # CubeMX 生成（外设初始化、中断、时钟）
 │   ├── Inc/                          # *.h：main.h / gpio.h / usart.h / i2c.h / ...
 │   └── Src/                          # *.c：main.c / gpio.c / usart.c / ...
@@ -111,10 +119,14 @@ helmet/
 **调度器任务模板** — `APP/scheduler.c`：
 ```c
 static task_t scheduler_task[] = {
-    {mpu6050_task, 10, 0},     // 10ms：姿态解算（实时性最高）
-    {mq2_task,     100, 0},    // 100ms：烟雾浓度
-    {m100pg_task,  20, 0},     // 20ms：GPS NMEA 解析
-    {dht11_task,   1000, 0},   // 1000ms：温湿度（采样周期较长）
+    {m100pg_task,      10,   0},  // 4G RX 解析、转发、上传节流（最先消费 USART2 ring buffer）
+    {asrpro_task,      10,   0},  // ASRPro 语音命令消费
+    {mq2_task,         100,  0},  // 烟雾浓度
+    {dht11_task,       1000, 0},  // 温湿度
+    {mpu6050_task,     10,   0},  // DMP 姿态 + 跌倒/碰撞报警
+    {helmet_alarm_task, 20,  0},  // 本地报警 RGB 仲裁
+    {max30102_task,    50,   0},  // 心率 / SpO2
+    {lcd_app_task,     200,  0},  // HUD 脏刷新
 };
 ```
 
@@ -141,8 +153,9 @@ void mpu6050_task(void) { ... }
 
 **推荐参考模块：**
 - `APP/scheduler.c` — 简洁的调度器，入门阅读
-- `APP/mpu6050.c` — 带 DMP 姿态解算、原始数据读取、任务函数的完整模块
-- `APP/ringbuffer.c` — 独立无依赖的通用数据结构
+- `APP/mpu6050.c` — 带 DMP 姿态解算、跌倒/碰撞报警、任务函数的完整模块
+- `APP/helmet_alarm.c` — 跨模块仲裁示例（RGB 唯一直写者，安全状态优先于云端/语音指令）
+- `APP/m100pg_protocol.c` — 协议层与硬件层解耦的范例（caller-owned context + 回调表）
 
 ---
 

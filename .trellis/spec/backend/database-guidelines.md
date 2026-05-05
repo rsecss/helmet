@@ -38,23 +38,24 @@ HAL_UARTEx_ReceiveToIdle_DMA(&huart2, usart_rx_dma_buffer, sizeof(usart_rx_dma_b
 
 ### 2. 环形缓冲区（生产 - 消费模式）
 
-**特点**：中断侧写入、任务侧读取，避免阻塞中断。参见 `APP/ringbuffer.c`。
+**特点**：中断侧写入、任务侧读取，避免阻塞中断。当前每个 UART 驱动模块在自己的 `.c` 内部维护私有静态环形缓冲（参见 `APP/m100pg.c::m100pg_rx_ring` + `m100pg_ring_*`、`APP/asrpro.c::asrpro_rx_ring` + `asrpro_ring_*`），不再共享公共 `ringbuffer` 组件。
 
 ```c
-/* 中断回调（生产者） */
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+/* APP/m100pg.c 中断回调（生产者，简化示意） */
+void m100pg_rx_event_callback(UART_HandleTypeDef *huart, uint16_t size)
 {
-    if (!ringbuffer_is_full(&usart_rb))
-        ringbuffer_write(&usart_rb, usart_rx_dma_buffer, Size);
-    memset(usart_rx_dma_buffer, 0, sizeof(usart_rx_dma_buffer));
+    if (huart->Instance != USART2) return;
+    m100pg_ring_write(m100pg_rx_dma_buffer, size);
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, m100pg_rx_dma_buffer,
+                                 sizeof(m100pg_rx_dma_buffer));
 }
 
-/* 调度器任务（消费者） */
+/* APP/m100pg.c 调度器任务（消费者） */
 void m100pg_task(void)
 {
-    if (ringbuffer_is_empty(&usart_rb)) return;
-    ringbuffer_read(&usart_rb, usart_read_buffer, usart_rb.itemCount);
-    /* 解析... */
+    uint16_t len = m100pg_ring_read(m100pg_forward_buffer,
+                                    sizeof(m100pg_forward_buffer));
+    if (len) m100pg_proto_feed(&m100pg_proto, m100pg_forward_buffer, len);
 }
 ```
 
@@ -100,12 +101,12 @@ void mpu6050_task(void)
 
 | 类别 | 规则 | 示例 |
 |------|------|------|
-| DMA 缓冲区 | `<外设>_<方向>_dma_buffer` | `usart_rx_dma_buffer`, `dma_buff`（历史遗留） |
-| 环形缓冲区实例 | `<用途>_rb` | `usart_rb` |
+| DMA 缓冲区 | `<模块>_<方向>_dma_buffer` 或模块私有 static 数组 | `m100pg_rx_dma_buffer`, `dma_buff`（ADC 历史名） |
+| 环形缓冲区实例 | 模块私有 static 数组 + `<模块>_ring_*` 接口，不暴露给 `.h` | `m100pg_rx_ring`, `asrpro_rx_ring` |
 | 传感器原始值 | 简短三字母 + 轴 | `aacx/aacy/aacz`（加速度）, `gyrox/gyroy/gyroz`（角速度） |
 | 解算结果 | 物理量全称 | `pitch`, `roll`, `yaw`, `AVM`, `GVM`（向量模） |
-| 事件标志 | `<事件>_flag` | `fall_flag`（跌倒） |
-| 缓冲区尺寸宏 | `<模块>_BUFFER_SIZE` 或 `RINGBUFFER_SIZE` | `RINGBUFFER_SIZE`, `BUFFER_SIZE` |
+| 事件标志 | `<事件>_flag` 或模块 `is_*` 接口 | `mpu6050_is_fall_alarm()`, `mpu6050_is_collision_alarm()` |
+| 缓冲区尺寸宏 | `<模块>_<用途>_SIZE`，模块前缀强制 | `M100PG_RX_RING_SIZE`, `ASRPRO_LINE_BUFFER_SIZE` |
 
 **跨模块访问 extern 变量** 必须在 `.h` 用 `extern` 声明，在 `.c` 定义一次，禁止在多个 `.c` 重复定义。
 
@@ -117,9 +118,9 @@ void mpu6050_task(void)
 
 2. **中断中调用 `printf`**：中断回调应只做"搬运"（如把 DMA 缓冲拷进环形缓冲），不要在中断里解析或打印，否则延长中断驻留、丢失后续数据。参考 `HAL_UARTEx_RxEventCallback`。
 
-3. **环形缓冲区满时丢写未告警**：当前 `ringbuffer_write` 满则返回 `-1` 静默丢弃，生产者未检查返回值会静悄悄丢数据。修改代码时若对数据完整性要求高，应检查返回值或增加满告警标志。
+3. **环形缓冲区满时丢写未告警**：模块私有 ring write 满时通常静默丢弃；生产者必须检查返回值或维护溢出标志（参考 `APP/m100pg.c::m100pg_rx_overflow`），并在调度器任务中以 `printf("[4G] rx ring overflow\r\n")` 等方式可观测，避免静悄悄丢数据。
 
-4. **DMA 缓冲清零时机错误**：UART DMA 回调中 `memset(usart_rx_dma_buffer, 0, ...)` **必须**在 `ringbuffer_write` 之后执行，否则会擦掉未入队的数据。
+4. **DMA 缓冲清零时机错误**：UART DMA 回调中 `memset(rx_dma_buffer, 0, ...)` **必须**在写入私有 ring buffer 之后执行，否则会擦掉未入队的数据。
 
 5. **`extern` 声明缺失 / 重复定义**：新模块的全局变量应在 `.h` 用 `extern`、在 `.c` 定义一次。忘记 `extern` 会链接错误；多处定义会"multiple definition"链接失败。
 
