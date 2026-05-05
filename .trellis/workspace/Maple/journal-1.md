@@ -524,3 +524,62 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: LCD 传感器状态页
+
+**Date**: 2026-05-05
+**Task**: LCD 传感器状态页
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+### Summary
+
+Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/Keil encoding lessons learned.
+
+### Main Changes
+
+- Added `APP/lcd_app.c` / `APP/lcd_app.h` as the hardware-specific display application layer for six sensor lines: temperature, humidity, smoke concentration, heart rate, SpO2, and attitude angles.
+- Kept `APP/st7735.c` as a reusable low-coupling display driver and moved sensor-specific page logic out of the ST7735 module.
+- Added project-specific 12x12 Chinese glyph support with UTF-8 byte keys and UTF-8 hex escaped LCD labels to avoid Keil source charset failures.
+- Registered the new LCD app module in `APP/bsp_system.h`, `APP/scheduler.c`, `Core/Src/main.c`, and `MDK-ARM/helmet.uvprojx`.
+- Updated README, CLAUDE, and backend specs for the new LCD module boundary and Chinese font validation rules.
+
+### Testing
+
+- [OK] User confirmed Keil build succeeded.
+- [OK] User confirmed hardware LCD display test succeeded.
+- [OK] `git diff --check HEAD~2..HEAD` passed.
+- [OK] ST7735 driver no longer contains direct DHT11/MQ2/MAX30102/MPU6050 sensor coupling.
+- [OK] LCD text/font files contain no known mojibake markers checked during review.
+- [OK] APP header guards passed for touched headers.
+- [WARN] Local `cppcheck` command is not installed, so full static analysis was not run locally.
+
+### Status
+
+[OK] **Completed**
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7cef16` | (see git log) |
+| `888eba3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
