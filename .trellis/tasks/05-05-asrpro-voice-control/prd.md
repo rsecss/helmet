@@ -49,18 +49,23 @@ Integrate the ASRPro offline voice module with the STM32 firmware so voice-trigg
 
 ## Acceptance Criteria
 
-* [ ] Sending `led_on\n` to USART1 causes the base LED state to become white/on through the existing alarm-aware LED path.
-* [ ] Sending `led_off\n` to USART1 causes the base LED state to become off unless an active safety alarm overrides output.
-* [ ] During an active fall/collision alarm, voice LED commands do not suppress the alarm red indication.
-* [ ] Sending `motor_speed_3\n` to USART1 sets the motor PWM speed to 100 percent using the existing motor API.
-* [ ] Sending `motor_speed_0\n` to USART1 stops the motor.
-* [ ] Unknown USART1 lines are ignored or logged without actuator changes.
-* [ ] `led_on\r\n` and ` led_on \n` are accepted as `led_on`.
-* [ ] `LED_ON\n`, Chinese text, or partial strings are rejected as unknown commands.
-* [ ] A compile-time switch can disable ASR command execution for temporary USART1 debug use.
-* [ ] USART1 RX callback work is limited to byte buffering and receive restart; command parsing runs in `asrpro_task()`.
-* [ ] USART2 4G receive, forwarding, upload, and command parsing remain untouched except for any required callback dispatch coexistence.
-* [ ] Firmware code builds in the existing STM32 HAL / Keil project structure.
+* [x] Sending `led_on\n` to USART1 causes the base LED state to become white/on through the existing alarm-aware LED path.
+* [x] Sending `led_off\n` to USART1 causes the base LED state to become off unless an active safety alarm overrides output.
+* [x] During an active fall/collision alarm, voice LED commands do not suppress the alarm red indication.
+* [x] Sending `motor_speed_3\n` to USART1 sets the motor PWM speed to 100 percent using the existing motor API.
+* [x] Sending `motor_speed_0\n` to USART1 stops the motor.
+* [x] Unknown USART1 lines are ignored or logged without actuator changes.
+* [x] `led_on\r\n` and ` led_on \n` are accepted as `led_on`.
+* [x] `LED_ON\n`, Chinese text, or partial strings are rejected as unknown commands.
+* [x] A compile-time switch can disable ASR command execution for temporary USART1 debug use.
+* [x] USART1 RX callback work is limited to byte buffering and receive restart; command parsing runs in `asrpro_task()`.
+* [x] USART2 4G receive, forwarding, upload, and command parsing remain untouched except for any required callback dispatch coexistence.
+* [x] Firmware code builds in the existing STM32 HAL / Keil project structure.
+
+## Manual Verification
+
+- 2026-05-05 用户在 Keil 中完成 Build 并烧录到目标板，实机验证 `led_on` / `led_off` / `motor_speed_0..3` 语音命令均正常驱动 RGB LED 与 PWM 电机。
+- 2026-05-05 用户确认 USART2 4G 通道上传与下行 LED/motor 命令在 ASRPro 接入后行为不变。
 
 ## Definition of Done
 

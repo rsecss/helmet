@@ -3,7 +3,7 @@
   "name": "asrpro-voice-control",
   "title": "brainstorm: ASRPro voice module controls LED and motor",
   "description": "",
-  "status": "planning",
+  "status": "done",
   "dev_type": "backend",
   "scope": null,
   "package": null,
@@ -11,11 +11,11 @@
   "creator": "Maple",
   "assignee": "Maple",
   "createdAt": "2026-05-05",
-  "completedAt": null,
-  "branch": null,
+  "completedAt": "2026-05-05",
+  "branch": "dev",
   "base_branch": "dev",
   "worktree_path": null,
-  "current_phase": 0,
+  "current_phase": 6,
   "next_action": [
     {
       "phase": 1,
@@ -42,7 +42,7 @@
       "action": "record-session"
     }
   ],
-  "commit": null,
+  "commit": "62a2c3b",
   "pr_url": null,
   "subtasks": [],
   "children": [],
