@@ -234,14 +234,53 @@ helmet/
 
 ## CI / Release
 
-**Quality Gate** (`.github/workflows/quality.yml`) — `push main/dev` 与 `PR main` 触发：cppcheck 静态分析、APP 头文件守卫检查、UTF-8 无 BOM + LF 行尾。
+### Quality Gate (`.github/workflows/quality.yml`)
 
-**Auto Release** (`.github/workflows/release.yml`) — 推送 `v*` 标签触发，git-cliff 基于 Conventional Commits 生成 changelog 并创建 GitHub Release：
+`push main/dev` 与 `PR main` 触发，三类检查：
 
-```bash
-git tag v0.x.0
-git push origin v0.x.0
+- **静态检查**：cppcheck（warning/performance/portability）+ 头文件守卫 + UTF-8 无 BOM + LF 行尾
+- **Conventional Commits 校验**：PR 标题必须形如 `<type>(<scope>): <description>`
+- **CHANGELOG 同步**：`feat / fix / perf / refactor` 类 PR 必须更新 `CHANGELOG.md` 的 `[Unreleased]` 段；release PR 反向校验版本段已写入
+
+### Auto Release (`.github/workflows/release.yml`)
+
+推送 `v*` 标签触发，三段式：
+
+1. **validate**：tag 必须已合入 main + CHANGELOG.md 含对应版本段
+2. **quality**：复跑静态检查
+3. **release**：抽取 CHANGELOG.md 中该版本段为 release note 主体；git-cliff 生成完整提交记录作为可折叠附录；调 GitHub API 创建 Release
+
+### 发版工作流（5 步）
+
+```text
+开发期
+  └─ 每个 feat/fix PR → 顺手在 CHANGELOG.md 的 [Unreleased] 段加一行
+
+准备发版（在 dev 分支）
+  ├─ 把 [Unreleased] 重命名为 [X.Y.Z] - YYYY-MM-DD
+  ├─ 顶部新建空 [Unreleased]
+  ├─ 底部 compare 链接区追加 [X.Y.Z] 与更新 [Unreleased]
+  └─ commit: chore(release): vX.Y.Z
+
+提 Release PR (dev → main)
+  ├─ PR URL 加 ?template=release.md 选用发版模板
+  ├─ 标题: release: vX.Y.Z
+  └─ 评审通过后 squash & merge
+
+打 tag（在 main HEAD）
+  ├─ git checkout main && git pull
+  ├─ git tag vX.Y.Z
+  └─ git push origin vX.Y.Z
+
+CI 自动发版
+  └─ release.yml 校验 → 质量门禁 → 抽取 CHANGELOG → 拼附录 → 发 Release
 ```
+
+**版本号约定（SemVer）**：MAJOR 不兼容变更 / MINOR 新增功能 / PATCH 仅修复。
+
+**分支保护**：main 只接 PR 合并，禁止直接 push；建议在 GitHub Settings → Branches 启用 "Require pull request before merging" + "Require status checks to pass"。
+
+**本地预览**：`git cliff --unreleased --strip header --config cliff.toml` 可预览将自动生成的提交附录。
 
 ---
 

@@ -8,7 +8,49 @@ permissions:
   contents: write
 
 jobs:
-  check:
+  validate:
+    name: 校验 tag 与 CHANGELOG
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      previous: ${{ steps.parse.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 解析版本号
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+          echo "previous=$PREV" >> "$GITHUB_OUTPUT"
+          echo "解析 tag=$TAG version=$VERSION previous=$PREV"
+
+      - name: 校验 tag 已合入 main
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if ! git branch -r --contains "$TAG" | grep -qE "origin/main$"; then
+            echo "::error::tag $TAG 不在 main 分支上。发版必须先把 release PR 合到 main，再从 main HEAD 打 tag。"
+            exit 1
+          fi
+          echo "✓ tag $TAG 已合入 main"
+
+      - name: 校验 CHANGELOG.md 含该版本段落
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          HEADER="## [${VERSION}]"
+          if ! grep -qF "$HEADER" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::未找到 '${HEADER} - YYYY-MM-DD' 段落，请按 Keep a Changelog 格式补全后再发版"
+            exit 1
+          fi
+          echo "✓ CHANGELOG.md 含 ${HEADER} 段落"
+
+  quality:
+    name: 质量门禁
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,53 +98,69 @@ jobs:
           exit $fail
 
   release:
-    needs: check
+    name: 发布 GitHub Release
+    needs: [validate, quality]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 生成 cliff.toml
+      - name: 抽取 CHANGELOG 主体
+        id: extract
         run: |
-          cat > cliff.toml << 'TOML'
-          [changelog]
-          header = ""
-          body = """
-          {% for group, commits in commits | group_by(attribute="group") %}\
-          ### {{ group | upper_first }}
-          {% for commit in commits %}\
-          - {{ commit.message | split(pat="\n") | first | trim }} \
-            ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/rsecss/helmet/commit/{{ commit.id }}))\
-          {% endfor %}
-          {% endfor %}
-          """
-          trim = true
+          VERSION="${{ needs.validate.outputs.version }}"
+          HEADER="## [${VERSION}]"
+          awk -v hdr="$HEADER" '
+            index($0, hdr) == 1                    { in_section=1; next }
+            in_section && index($0, "## [") == 1   { exit }
+            in_section && /^\[[^]]*\]: /           { exit }
+            in_section                             { print }
+          ' CHANGELOG.md | awk 'NF { p=1 } p' > /tmp/changelog_body.md
 
-          [git]
-          conventional_commits = true
-          filter_unconventional = true
-          commit_parsers = [
-            { message = "^feat", group = "🚀 Features" },
-            { message = "^fix", group = "🐛 Bug Fixes" },
-            { message = "^docs", group = "📄 Documentation" },
-            { message = "^refactor", group = "🏗️ Refactors" },
-            { message = "^perf", group = "⚡ Performance" },
-            { message = "^test", group = "✅ Tests" },
-            { message = "^(chore|ci)", group = "🔧 Chores" },
-          ]
-          TOML
+          if [ ! -s /tmp/changelog_body.md ]; then
+            echo "::error::CHANGELOG.md 中 ${HEADER} 段落抽取为空"
+            exit 1
+          fi
+          echo "抽取主体行数: $(wc -l < /tmp/changelog_body.md)"
 
-      - name: 生成 Changelog
-        id: changelog
+      - name: 生成 commit 附录
+        id: cliff
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
           args: --latest --strip header
-        env:
-          GITHUB_REPO: ${{ github.repository }}
 
-      - name: 创建 Release
+      - name: 拼接 Release Note
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          PREV: ${{ needs.validate.outputs.previous }}
+          REPO: ${{ github.repository }}
+          CLIFF_BODY: ${{ steps.cliff.outputs.content }}
+        run: |
+          {
+            cat /tmp/changelog_body.md
+            echo ""
+            echo "<details>"
+            echo "<summary>📝 完整提交记录（自动生成）</summary>"
+            echo ""
+            printf '%s\n' "$CLIFF_BODY"
+            echo ""
+            echo "</details>"
+            echo ""
+            if [ -n "$PREV" ]; then
+              echo "**完整对比**: https://github.com/${REPO}/compare/${PREV}...v${VERSION}"
+            fi
+          } > /tmp/release_note.md
+          echo "===== Release Note 预览 ====="
+          cat /tmp/release_note.md
+          echo "============================="
+
+      - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          body: ${{ steps.changelog.outputs.content }}
+          body_path: /tmp/release_note.md
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
