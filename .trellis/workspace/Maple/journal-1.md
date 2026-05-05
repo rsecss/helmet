@@ -561,3 +561,67 @@ Completed the ST7735 LCD sensor status page and documented the LCD Chinese font/
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 归档 4G 云端联调任务
+
+**Date**: 2026-05-05
+**Task**: 归档 4G 云端联调任务
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+### Summary
+
+确认 4G 云端联调任务实际功能已全部完成（含 Web 端实机联调与上电默认 LED 状态修复），代码复核 PRD 剩余 2 个 AC 已在代码层实现防御逻辑，更新 PRD 与 `task.json` 后归档任务到 `archive/2026-05/`。
+
+### Main Changes
+
+| Item | Details |
+|------|---------|
+| Code Review | 复核 `APP/m100pg.c` 与 `APP/m100pg_protocol.c`，确认非法/不完整命令拒绝（`memcmp` 严格等长匹配 + 未知命令落 `on_unknown` 不触发控制）和 RingBuffer 中断侧溢出截断（满则置 `rx_overflow` 并 `break`，不阻塞中断；`m100pg_proto_feed` 溢出后跳至下一 `\n` 丢弃半截数据）已实现 |
+| PRD | 勾选剩余 2 个 AC（非法/不完整数据不误触发、RingBuffer 溢出不阻塞中断），并在 Manual Verification 追加 2026-05-05 代码复核条目，注明未做专项注入/压测，按代码层防御达成 |
+| Task State | `task.json` 状态从 `planning → done`，`current_phase: 0 → 6`，`completedAt: 2026-05-05` |
+| Archive | 任务从 `tasks/04-28-04-28-4g-cloud-uart` 移动到 `tasks/archive/2026-05/04-28-04-28-4g-cloud-uart`，由 `task.py archive` 自动提交 |
+
+**Updated Files**:
+- `.trellis/tasks/archive/2026-05/04-28-04-28-4g-cloud-uart/prd.md`
+- `.trellis/tasks/archive/2026-05/04-28-04-28-4g-cloud-uart/task.json`
+
+### Testing
+
+- [OK] PRD 全部 12 个 AC 已勾选
+- [OK] `git status` 工作目录 clean
+- [OK] 归档自动提交成功（`7f4a67a chore(task): 归档 04-28-04-28-4g-cloud-uart`）
+- [SKIP] 未做非法命令注入和强制 RingBuffer 溢出专项压测（按代码层防御达成；后续若扩展命令字典或接入语音模块需补回归测试）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task archived
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7f4a67a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
