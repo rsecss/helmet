@@ -12,17 +12,23 @@ m100pg_proto_t g_m100pg_proto;
 
 /* 0..3 档 → PWM 占空比百分比。pwm_motor_set_speed 接受 0..100。 */
 static const uint8_t kMotorGearToPercent[4] = { 0U, 33U, 66U, 100U };
+static const rgb_led_color_t kProtoLedToRgb[] = {
+    RGB_LED_COLOR_OFF,
+    RGB_LED_COLOR_WHITE,
+    RGB_LED_COLOR_RED,
+    RGB_LED_COLOR_GREEN,
+    RGB_LED_COLOR_YELLOW
+};
 
 static void bsp_led_set(helmet_led_state_t state, void *user)
 {
+    uint8_t index = (uint8_t)state;
+
     (void)user;
-    switch (state) {
-        case HELMET_LED_WHITE: helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE); break;
-        case HELMET_LED_RED:   helmet_alarm_set_base_led(RGB_LED_COLOR_RED);   break;
-        case HELMET_LED_GREEN: helmet_alarm_set_base_led(RGB_LED_COLOR_GREEN); break;
-        case HELMET_LED_OFF:
-        default:               helmet_alarm_set_base_led(RGB_LED_COLOR_OFF);   break;
+    if (index >= (uint8_t)(sizeof(kProtoLedToRgb) / sizeof(kProtoLedToRgb[0]))) {
+        index = (uint8_t)HELMET_LED_OFF;
     }
+    helmet_alarm_set_base_led(kProtoLedToRgb[index]);
 }
 
 static void bsp_motor_set_speed(uint8_t gear, void *user)
@@ -48,8 +54,9 @@ static void bsp_collect_sample(helmet_telemetry_t *out, void *user)
         out->hum  = dht11_get_humidity();
     }
 
-    float ppm = mq2_get_ppm();
-    out->mq2 = (ppm > 0.0f) ? (uint32_t)(ppm + 0.5f) : 0UL;
+    float mq2_index = mq2_get_trend_index();
+    out->mq2 = (mq2_index > 0.0f) ? (uint32_t)(mq2_index + 0.5f) : 0UL;
+    out->mq2_alarm = mq2_is_trend_alarm();
 
     out->pitch = pitch;
     out->roll  = roll;
@@ -62,6 +69,8 @@ static void bsp_collect_sample(helmet_telemetry_t *out, void *user)
 
     if (mpu6050_get_alarm_flags() != 0U) {
         out->led = HELMET_LED_RED;
+    } else if (out->mq2_alarm != 0U) {
+        out->led = HELMET_LED_YELLOW;
     }
 
     /* led / motor 由协议库预填 intent；此处不覆盖。 */

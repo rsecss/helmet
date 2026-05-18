@@ -12,6 +12,7 @@ typedef enum {
     RGB_LED_COLOR_RED,
     RGB_LED_COLOR_GREEN,
     RGB_LED_COLOR_BLUE,
+    RGB_LED_COLOR_YELLOW,
     RGB_LED_COLOR_WHITE
 } rgb_led_color_t;
 
@@ -19,6 +20,7 @@ void rgb_led_set_color(rgb_led_color_t color);     // 设置颜色
 void rgb_led_set_white(void);                      // 设置白色
 void rgb_led_set_red(void);                        // 设置红色
 void rgb_led_set_green(void);                      // 设置绿色
+void rgb_led_set_yellow(void);                     // 设置黄色
 void rgb_led_set_enabled(uint8_t enabled);         // 设置开关状态
 void rgb_led_off(void);                            // 关闭 LED
 rgb_led_color_t rgb_led_get_color(void);           // 获取当前颜色

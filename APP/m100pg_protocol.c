@@ -5,15 +5,22 @@
 
 /* ---------- Helpers -------------------------------------------------- */
 
+static const char *const kLedStateText[] = {
+    "off",
+    "white",
+    "red",
+    "green",
+    "yellow"
+};
+
 static const char *led_state_to_string(helmet_led_state_t s)
 {
-    switch (s) {
-        case HELMET_LED_WHITE: return "white";
-        case HELMET_LED_RED:   return "red";
-        case HELMET_LED_GREEN: return "green";
-        case HELMET_LED_OFF:
-        default:               return "off";
+    uint8_t index = (uint8_t)s;
+
+    if (index >= (uint8_t)(sizeof(kLedStateText) / sizeof(kLedStateText[0]))) {
+        index = (uint8_t)HELMET_LED_OFF;
     }
+    return kLedStateText[index];
 }
 
 static int proto_emit(m100pg_proto_t *p, const char *buf, uint16_t len)
@@ -183,7 +190,7 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
 
     char buf[M100PG_PROTO_TX_BUF];
     int  n = snprintf(buf, sizeof buf,
-                      "temp=%u,hum=%u,mq2=%lu,"
+                      "temp=%u,hum=%u,mq2=%lu,mq2_alarm=%u,"
                       "pitch=%.1f,roll=%.1f,yaw=%.1f,"
                       "fall=%u,collision=%u,"
                       "hr=%ld,spo2=%ld,"
@@ -191,6 +198,7 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
                       (unsigned)t.temp,
                       (unsigned)t.hum,
                       (unsigned long)t.mq2,
+                      (unsigned)t.mq2_alarm,
                       (double)t.pitch,
                       (double)t.roll,
                       (double)t.yaw,

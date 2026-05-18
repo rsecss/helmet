@@ -71,7 +71,7 @@
 | `mpu6050_task` | 10 ms | DMP 采样 + 跌倒 / 碰撞检测 |
 | `helmet_alarm_task` | 20 ms | RGB 输出仲裁 |
 | `max30102_task` | 50 ms | 心率 / SpO2 |
-| `mq2_task` | 100 ms | 烟雾浓度 |
+| `mq2_task` | 100 ms | 烟雾趋势 |
 | `lcd_app_task` | 200 ms | HUD 脏刷新 |
 | `dht11_task` | 1000 ms | 温湿度 |
 
@@ -125,12 +125,12 @@ cd helmet
 |---|---|---|
 | 任务调度器 | `APP/scheduler.c` | SysTick 毫秒级协作调度，静态任务表 |
 | BSP 头汇聚 | `APP/bsp_system.h` | HAL + APP 头文件统一入口 |
-| MQ2 烟雾 | `APP/mq2.c` | ADC + DMA 循环采样，输出 ppm |
+| MQ2 烟雾 | `APP/mq2.c` | ADC + DMA 循环采样，启动清洁空气 R0 校准，输出归一化趋势值与异常状态 |
 | DHT11 温湿度 | `APP/dht11.c` | 单总线时序，1 Hz |
 | MPU6050 IMU | `APP/mpu6050.c` + `mpu6050_inv_mpu*.c` | InvenSense DMP 固件 + 跌倒 / 碰撞算法 |
 | MAX30102 生命体征 | `APP/max30102.c` | I2C2 FIFO + PBA 心跳 + AC/DC SpO2 |
 | RGB LED | `APP/rgb_led.c` | 共阴三色 LED，仅暴露 `rgb_led_color_t` 接口 |
-| 安全报警仲裁 | `APP/helmet_alarm.c` | 唯一直写 RGB 的模块；报警态强制红色快闪 ≥ 15 s |
+| 安全报警仲裁 | `APP/helmet_alarm.c` | 唯一直写 RGB 的模块；跌倒/碰撞红灯快闪，MQ2 趋势异常黄灯快闪 |
 | PWM 电机 | `APP/pwm_motor.c` | TB6612FNG A 通道，调速 / 转向 / 停止 |
 | 4G 链路 | `APP/m100pg.c` + `APP/m100pg_bsp.c` | USART2 DMA + RingBuffer + 心跳 + 上传调度 |
 | 4G 协议 | `APP/m100pg_protocol.c` | 上行 telemetry 格式化 + 下行命令字典 |
@@ -147,17 +147,18 @@ cd helmet
 每秒一帧，单行逗号分隔 `key=value`，`\n` 终止：
 
 ```
-temp=23,hum=60,mq2=120,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collision=0,hr=72,spo2=98,led=white,motor=2
+temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collision=0,hr=72,spo2=98,led=white,motor=2
 ```
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
 | `temp` / `hum` | uint8 | 温度 (°C) / 相对湿度 (%) |
-| `mq2` | uint32 | MQ2 ppm 估算 |
+| `mq2` | uint32 | MQ2 归一化趋势指数，清洁空气约为 100 |
+| `mq2_alarm` | uint8 | 0/1，MQ2 趋势异常报警 |
 | `pitch` / `roll` / `yaw` | float | DMP 姿态欧拉角 |
 | `fall` / `collision` | uint8 | 0/1，跌倒确认 / 激烈碰撞 |
 | `hr` / `spo2` | int32 | 心率 (bpm) / 血氧 (%)，0 表示无效 |
-| `led` | enum | `off` / `white` / `red` / `green`（意图镜像） |
+| `led` | enum | `off` / `white` / `red` / `green` / `yellow`（意图或本地报警镜像） |
 | `motor` | uint8 | 0..3 档位（意图镜像） |
 
 ### 下行（浏览器 → 设备）

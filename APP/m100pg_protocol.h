@@ -8,7 +8,7 @@
  *   - Each frame is a UTF-8 text line terminated by '\n'.
  *   - Uplink (device -> browser): a single comma-separated key=value line:
  *
- *       temp=23,hum=60,mq2=120,pitch=1.2,roll=-0.5,yaw=180.0,
+ *       temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,
  *       fall=0,collision=0,hr=72,spo2=98,led=white,motor=2\n
  *
  *   - Downlink dictionary (browser -> device):
@@ -59,14 +59,16 @@ typedef enum {
     HELMET_LED_OFF = 0,
     HELMET_LED_WHITE,
     HELMET_LED_RED,
-    HELMET_LED_GREEN
+    HELMET_LED_GREEN,
+    HELMET_LED_YELLOW
 } helmet_led_state_t;
 
 /* ---------- Telemetry snapshot --------------------------------------
  *
  * Field types align with the existing driver signatures:
  *   temp/hum  -> dht11_get_temperature/humidity (uint8_t)
- *   mq2       -> rounded mq2_get_ppm()          (uint32_t)
+ *   mq2       -> rounded mq2_get_trend_index()  (uint32_t)
+ *   mq2_alarm -> mq2_is_trend_alarm()           (uint8_t)
  *   pitch...  -> mpu6050 dmp globals            (float)
  *   fall/collision -> mpu6050 alarm getters      (uint8_t)
  *   hr/spo2   -> max30102 globals               (int32_t)
@@ -81,6 +83,7 @@ typedef struct {
     uint8_t  temp;
     uint8_t  hum;
     uint32_t mq2;
+    uint8_t  mq2_alarm;
     /* imu */
     float    pitch;
     float    roll;

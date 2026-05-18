@@ -63,6 +63,10 @@ void rgb_led_set_color(rgb_led_color_t color)
             rgb_led_write(0U, 0U, 1U);
             rgb_led_current_color = RGB_LED_COLOR_BLUE;
             break;
+        case RGB_LED_COLOR_YELLOW:
+            rgb_led_write(1U, 1U, 0U);
+            rgb_led_current_color = RGB_LED_COLOR_YELLOW;
+            break;
         case RGB_LED_COLOR_WHITE:
             rgb_led_write(1U, 1U, 1U);
             rgb_led_current_color = RGB_LED_COLOR_WHITE;
@@ -102,6 +106,16 @@ void rgb_led_set_red(void)
 void rgb_led_set_green(void)
 {
     rgb_led_set_color(RGB_LED_COLOR_GREEN);
+}
+
+/**
+ * @brief       设置三色 LED 为黄色
+ * @param       无
+ * @retval      无
+ */
+void rgb_led_set_yellow(void)
+{
+    rgb_led_set_color(RGB_LED_COLOR_YELLOW);
 }
 
 /**
