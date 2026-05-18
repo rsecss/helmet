@@ -1,0 +1,6 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis\\spec\\backend\\quality-guidelines.md", "reason": "final quality verification for touched APP files"}
+{"file": ".\\工程设计与代码约束.md", "reason": "verify implementation remains simple and constrained"}
+{"file": ".trellis\\spec\\backend\\directory-structure.md", "reason": "verify APP module registration and ownership boundaries"}
+{"file": ".trellis\\spec\\backend\\database-guidelines.md", "reason": "verify scheduler and runtime state behavior"}
