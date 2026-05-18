@@ -13,10 +13,12 @@
 ### Added
 
 - 新增 MQ2 归一化烟雾趋势异常状态，接入 LCD `ALM`、4G `mq2_alarm` 遥测和本地黄灯快闪报警仲裁。
+- 新增 DHT11 高温风扇自动启动仲裁，30°C 自动至少 1 档运行、28°C 释放，并通过 4G telemetry 上报 `fan_auto` / `temp_limit` / `temp_recover`。
 
 ### Changed
 
 - MQ2 采集改为基于清洁空气 R0 校准和 `Rs/R0` 的趋势指数，遥测 `mq2` 字段不再作为精确定量 ppm 表述。
+- Web/语音 `motor_speed_0` 作为最高优先级关闭指令，高温自动打开风扇时也会立即停机；`motor_speed_1..3` 解除关闭覆盖并设置手动基础档位。
 
 ## [0.8.0] - 2026-05-05
 

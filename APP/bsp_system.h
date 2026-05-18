@@ -32,6 +32,7 @@ extern "C" {
 #include "rgb_led.h"                    // 三色 LED 模块
 #include "helmet_alarm.h"               // 本地安全报警输出仲裁
 #include "pwm_motor.h"                  // PWM 电机驱动模块
+#include "fan_control.h"                // 风扇手动/高温自动仲裁
 #include "st7735.h"                     // ST7735 彩色显示屏模块
 #include "lcd_app.h"                    // LCD 传感器数据显示页面
 #include "scheduler.h"

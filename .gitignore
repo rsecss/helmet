@@ -3,6 +3,9 @@
 
 # Build artifacts (also see Keilkill.bat)
 MDK-ARM/helmet/helmet.hex
+MDK-ARM/helmet/
+MDK-ARM/DebugConfig/
+MDK-ARM/*.lst
 
 # OS generated files
 .ace-tool/

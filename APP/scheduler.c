@@ -15,6 +15,7 @@ static task_t scheduler_task[] = {
     {asrpro_task, 10, 0},        // ASRPro 语音命令消费任务，每 10 ms 执行一次
     {mq2_task, 100, 0},
     {dht11_task, 1000, 0},
+    {fan_control_task, 1000, 0},
     {mpu6050_task, 10, 0},
     {helmet_alarm_task, 20, 0},
     {max30102_task, 50, 0},

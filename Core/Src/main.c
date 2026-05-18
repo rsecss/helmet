@@ -116,6 +116,7 @@ int main(void)
 #else
   (void)init_result;
 #endif
+  fan_control_init(); // 风扇手动/高温自动仲裁初始化
   init_result = DHT11_Init();       // DHT11 温湿度传感器初始化
 #if ASRPRO_ENABLE_USART1_DEBUG
   printf("[DHT11] init=%u\r\n", init_result);

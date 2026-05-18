@@ -30,7 +30,7 @@
 单 MCU 协作调度的嵌入式固件，三层职责：
 
 1. **感知层** — 4 类传感器（IMU / 心率血氧 / 温湿度 / 烟雾）各自一个 `APP/` 模块，周期任务采样并写入模块全局缓存。
-2. **决策层** — 协作调度器 `APP/scheduler.c` 按毫秒节拍执行任务表；本地报警仲裁 `APP/helmet_alarm.c` 是 RGB LED 的唯一直写者，跌倒 / 碰撞期间红灯抢占普通灯效。
+2. **决策层** — 协作调度器 `APP/scheduler.c` 按毫秒节拍执行任务表；本地报警仲裁 `APP/helmet_alarm.c` 是 RGB LED 的唯一直写者，风扇仲裁 `APP/fan_control.c` 统一处理手动档位与高温自动启动。
 3. **通信层** — USART2 DMA + RingBuffer 接 4G DTU 上云，USART1 单字节 IT 接 ASRPro 离线语音，ST7735 软件 SPI 驱本地 HUD。
 
 ```
@@ -132,6 +132,7 @@ cd helmet
 | RGB LED | `APP/rgb_led.c` | 共阴三色 LED，仅暴露 `rgb_led_color_t` 接口 |
 | 安全报警仲裁 | `APP/helmet_alarm.c` | 唯一直写 RGB 的模块；跌倒/碰撞红灯快闪，MQ2 趋势异常黄灯快闪 |
 | PWM 电机 | `APP/pwm_motor.c` | TB6612FNG A 通道，调速 / 转向 / 停止 |
+| 风扇仲裁 | `APP/fan_control.c` | 手动基础档位 + DHT11 高温自动 1 档覆盖 |
 | 4G 链路 | `APP/m100pg.c` + `APP/m100pg_bsp.c` | USART2 DMA + RingBuffer + 心跳 + 上传调度 |
 | 4G 协议 | `APP/m100pg_protocol.c` | 上行 telemetry 格式化 + 下行命令字典 |
 | 离线语音 | `APP/asrpro.c` | USART1 单字节 IT + 调度器侧解析 |
@@ -147,7 +148,7 @@ cd helmet
 每秒一帧，单行逗号分隔 `key=value`，`\n` 终止：
 
 ```
-temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collision=0,hr=72,spo2=98,led=white,motor=2
+temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collision=0,hr=72,spo2=98,led=white,motor=2,fan_auto=0,temp_limit=30,temp_recover=28
 ```
 
 | 字段 | 类型 | 含义 |
@@ -159,7 +160,9 @@ temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collisio
 | `fall` / `collision` | uint8 | 0/1，跌倒确认 / 激烈碰撞 |
 | `hr` / `spo2` | int32 | 心率 (bpm) / 血氧 (%)，0 表示无效 |
 | `led` | enum | `off` / `white` / `red` / `green` / `yellow`（意图或本地报警镜像） |
-| `motor` | uint8 | 0..3 档位（意图镜像） |
+| `motor` | uint8 | 0..3 最终输出档位 |
+| `fan_auto` | uint8 | 0/1，DHT11 高温自动风扇覆盖状态 |
+| `temp_limit` / `temp_recover` | uint8 | 风扇自动启动 / 恢复阈值，当前固定为 30°C / 28°C |
 
 ### 下行（浏览器 → 设备）
 
@@ -167,11 +170,11 @@ temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collisio
 |---|---|
 | `led_on` / `led_off` | `led_set(WHITE / OFF)` |
 | `led_color_white` / `led_color_red` / `led_color_green` | `led_set(...)` |
-| `motor_speed_0..3` | `motor_set_speed(0..3)` → `{0, 33, 66, 100}` % |
+| `motor_speed_0..3` | 设置风扇手动基础档位 `{0, 33, 66, 100}` % |
 | `ping` / `pong` | 心跳，静默忽略 |
 | 其他 | 投递到 `on_unknown(line, len)` |
 
-LED 命令必须经 `helmet_alarm_set_base_led()`，**不允许直接写 PB12/PB13/PB14**。报警活动期间下发的颜色仅暂存，待报警自动解除后恢复。协议库说明详见 `APP/m100pg_protocol.h` 头注释。
+LED 命令必须经 `helmet_alarm_set_base_led()`，**不允许直接写 PB12/PB13/PB14**。报警活动期间下发的颜色仅暂存，待报警自动解除后恢复。风扇命令必须经 `fan_control_set_manual_gear()`；当 `temp >= 30°C` 且 DHT11 有效时，高温自动覆盖至少保持 1 档，但 `motor_speed_0` 是最高优先级关闭指令，会立即关闭风扇并阻止高温自动重新打开，直到用户下发 1/2/3 档或温度降至 `28°C` 后解除关闭覆盖。协议库说明详见 `APP/m100pg_protocol.h` 头注释。
 
 ---
 
@@ -185,6 +188,8 @@ LED 命令必须经 `helmet_alarm_set_base_led()`，**不允许直接写 PB12/PB
 | 命令格式 | 小写英文 + `\n`，容忍 `\r` 与首尾 ASCII 空白 |
 | 支持命令 | `led_on` / `led_off` / `motor_speed_0..3` |
 | 严格性 | 严格 `memcmp` 等长匹配，**不做模糊 / 中文 / 大小写转换** |
+
+`motor_speed_0` 是最高优先级关闭指令；高温自动打开期间下发后应立即停风扇。`motor_speed_1..3` 会解除关闭覆盖并设置对应手动基础档位。
 
 调试旁路（编译时切换）：
 
