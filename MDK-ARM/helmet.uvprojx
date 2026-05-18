@@ -1119,16 +1119,6 @@
               <FilePath>..\APP\pwm_motor.h</FilePath>
             </File>
             <File>
-              <FileName>fan_control.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\APP\fan_control.c</FilePath>
-            </File>
-            <File>
-              <FileName>fan_control.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\APP\fan_control.h</FilePath>
-            </File>
-            <File>
               <FileName>rgb_led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\rgb_led.c</FilePath>

@@ -1,11 +1,16 @@
 #include "asrpro.h"
-#include "fan_control.h"
 #include "helmet_alarm.h"
+#include "pwm_motor.h"
 #include "rgb_led.h"
 #include "usart.h"
 
 #define ASRPRO_RX_RING_SIZE                128U
 #define ASRPRO_LINE_BUFFER_SIZE            48U
+#define ASRPRO_MOTOR_GEAR_COUNT            4U
+
+static const uint8_t asrpro_motor_gear_to_percent[ASRPRO_MOTOR_GEAR_COUNT] = {
+    0U, 33U, 66U, 100U
+};
 
 static uint8_t asrpro_rx_byte = 0U;
 static uint8_t asrpro_rx_ring[ASRPRO_RX_RING_SIZE];
@@ -138,7 +143,7 @@ static void asrpro_dispatch_line(char *line, uint16_t len)
         char gear_ch = cmd[12];
         if ((gear_ch >= '0') && (gear_ch <= '3')) {
             uint8_t gear = (uint8_t)(gear_ch - '0');
-            fan_control_set_manual_gear(gear);
+            pwm_motor_set_speed(asrpro_motor_gear_to_percent[gear]);
         }
     }
 #else

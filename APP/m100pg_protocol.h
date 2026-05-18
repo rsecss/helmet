@@ -9,8 +9,7 @@
  *   - Uplink (device -> browser): a single comma-separated key=value line:
  *
  *       temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,
- *       fall=0,collision=0,hr=72,spo2=98,led=white,motor=2,
- *       fan_auto=0,temp_limit=30,temp_recover=28\n
+ *       fall=0,collision=0,hr=72,spo2=98,led=white,motor=2\n
  *
  *   - Downlink dictionary (browser -> device):
  *       led_on              -> led_set(WHITE)
@@ -51,7 +50,7 @@ extern "C" {
 #endif
 
 #ifndef M100PG_PROTO_TX_BUF
-#define M100PG_PROTO_TX_BUF 256u   /* longest produced uplink line   */
+#define M100PG_PROTO_TX_BUF 224u   /* longest produced uplink line   */
 #endif
 
 /* ---------- LED state (mirrors a subset of rgb_led_color_t) --------- */
@@ -74,10 +73,10 @@ typedef enum {
  *   fall/collision -> mpu6050 alarm getters      (uint8_t)
  *   hr/spo2   -> max30102 globals               (int32_t)
  *
- * led is a mirror field. The library populates it from the last
- * successfully dispatched downlink command (intent-track); the
- * collect_sample callback can overwrite it for local alarms.
- * motor/fan_auto/temp_* are provided by the fan-control arbitration layer.
+ * led/motor are *mirror* fields. The library populates them from the
+ * last successfully dispatched downlink command (intent-track); the
+ * collect_sample callback can overwrite them if the caller prefers
+ * actual hardware readback.
  */
 typedef struct {
     /* env */
@@ -97,9 +96,6 @@ typedef struct {
     /* state mirror */
     helmet_led_state_t led;
     uint8_t  motor;     /* 0..3 */
-    uint8_t  fan_auto;  /* 0/1 */
-    uint8_t  temp_limit;
-    uint8_t  temp_recover;
 } helmet_telemetry_t;
 
 /* ---------- Hardware-binding callbacks ------------------------------

@@ -660,10 +660,10 @@ USART1        -> 115200-8N1
 ```text
 led_on          -> helmet_alarm_set_base_led(RGB_LED_COLOR_WHITE)
 led_off         -> helmet_alarm_set_base_led(RGB_LED_COLOR_OFF)
-motor_speed_0   -> fan_control_set_manual_gear(0)  /* highest-priority off */
-motor_speed_1   -> fan_control_set_manual_gear(1)  /* 33% */
-motor_speed_2   -> fan_control_set_manual_gear(2)  /* 66% */
-motor_speed_3   -> fan_control_set_manual_gear(3)  /* 100% */
+motor_speed_0   -> pwm_motor_set_speed(0)
+motor_speed_1   -> pwm_motor_set_speed(33)
+motor_speed_2   -> pwm_motor_set_speed(66)
+motor_speed_3   -> pwm_motor_set_speed(100)
 ```
 
 ### 3. Contracts
@@ -676,8 +676,7 @@ motor_speed_3   -> fan_control_set_manual_gear(3)  /* 100% */
 - 命令解析和执行器控制必须在 `asrpro_task()` 调度器任务中执行，不得在中断回调中调用 LED、电机、`printf` 或长阻塞 HAL。
 - 解析只接受固定小写命令；允许首尾 ASCII 空白、`\r`、`\n`，不做中文、大小写、模糊或部分匹配。
 - LED 控制必须走 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` 或写 RGB GPIO；安全报警红灯保持优先级。
-- 风扇控制必须走 `fan_control_set_manual_gear()`，不得在 ASRPro 或 M100PG 桥接层直接调用 `pwm_motor_set_speed()`。档位映射保持 `{0, 33, 66, 100}`，与 4G 命令模型一致。
-- `motor_speed_0` 是最高优先级关闭指令；DHT11 高温自动风扇已经启动时也必须立即停机，并阻止自动任务在温度仍高时马上重新打开。
+- 电机控制必须复用 `pwm_motor_set_speed()`，档位映射保持 `{0, 33, 66, 100}`，与 4G 命令模型一致。
 - 新增 `.c` 必须登记到 `APP/bsp_system.h`、`APP/scheduler.c`、`Core/Src/main.c` 和 `MDK-ARM/helmet.uvprojx`。
 
 ### 4. Validation & Error Matrix
@@ -691,7 +690,6 @@ motor_speed_3   -> fan_control_set_manual_gear(3)  /* 100% */
 | `LED_ON` 或中文文本触发动作 | 解析过宽 | 搜索解析逻辑，必须固定小写命令匹配，无大小写转换和模糊匹配 |
 | 报警红灯被 `led_off` 关闭 | LED 绕过仲裁 | ASR 只能调用 `helmet_alarm_set_base_led()`，不得直接调用 `rgb_led_off()` / `rgb_led_set_color()` |
 | `motor_speed_4` 启动电机 | 档位边界 | 只接受单字符 `'0'..'3'`，其他命令不触发执行器 |
-| 高温自动打开后语音 `motor_speed_0` 关不掉 | 风扇绕过仲裁或优先级错误 | ASR 只能调用 `fan_control_set_manual_gear(0)`；telemetry 必须变为 `fan_auto=0,motor=0` |
 | 4G 下发失效 | UART 回调混淆 | USART1 使用 `HAL_UART_RxCpltCallback()`，USART2/M100PG 继续使用 `HAL_UARTEx_RxEventCallback()` |
 
 ### 5. Good/Base/Bad Cases
@@ -707,15 +705,7 @@ USART1 RX 输入: " led_on\r\n"
 
 ```text
 USART1 RX 输入: "motor_speed_3\n"
-期望: 调用 fan_control_set_manual_gear(3)，最终输出 100%。
-```
-
-**Good：高温期间手动关闭最高优先级**
-
-```text
-DHT11 temp >= 30°C -> fan_auto=1,motor=1
-USART1 RX 输入: "motor_speed_0\n"
-期望: fan_auto=0,motor=0；温度仍高时自动任务不得立即重开风扇。
+期望: 调用 pwm_motor_set_speed(100)。
 ```
 
 **Base：临时调试**
@@ -753,7 +743,6 @@ if (memcmp(cmd, "led_off", 7U) == 0) {
 - 搜索 UART 回调：`HAL_UART_RxCpltCallback` 只负责 USART1 ASRPro，`HAL_UARTEx_RxEventCallback` 仍只分发 USART2 M100PG。
 - Keil Build 通过，`APP/asrpro.c` 已加入 `MDK-ARM/helmet.uvprojx`。
 - 实机或串口助手向 PA10 注入 `led_on\n`、`led_off\r\n`、` motor_speed_3 \n`，确认 LED 基础状态和电机档位变化。
-- 高温自动打开风扇后注入 `motor_speed_0\n`，确认风扇立即停止，4G telemetry 显示 `fan_auto=0,motor=0`，且温度仍高时不会马上重开。
 - 注入 `LED_ON\n`、`motor_speed_4\n`、`motor_speed_33\n`、中文文本，确认无执行器动作。
 - 报警状态下发送 `led_off\n`，确认红灯报警输出不被关闭。
 - 默认 `ASRPRO_ENABLE_USART1_DEBUG=0U` 时，确认 PA9 不输出启动日志；临时打开后确认 USART1 调试输出恢复。
@@ -782,146 +771,5 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void asrpro_task(void)
 {
     /* 从静态缓冲取完整行，裁剪 CR/LF/首尾空白，再执行固定命令 */
-}
-```
-
-## Scenario: DHT11 Temperature Fan Control Arbitration
-
-### 1. Scope / Trigger
-
-适用于 `APP/fan_control.c/.h` 统一仲裁 Web/M100PG、ASRPro 语音和 DHT11 高温自动风扇输出。触发条件：
-
-- 新增或修改风扇自动控制策略。
-- 修改 `motor_speed_0..3` 命令行为。
-- 修改 4G telemetry 中 `motor` / `fan_auto` / `temp_limit` / `temp_recover` 字段。
-- 任一调用方想直接控制 TB6612FNG 风扇速度。
-
-### 2. Signatures / Payload Fields
-
-`APP/fan_control.h` public API:
-
-```c
-void fan_control_init(void);
-void fan_control_task(void);
-void fan_control_set_manual_gear(uint8_t gear);   /* clamps to 0..3 */
-uint8_t fan_control_get_manual_gear(void);
-uint8_t fan_control_get_output_gear(void);
-uint8_t fan_control_is_auto_active(void);
-uint8_t fan_control_get_temp_on_threshold(void);  /* 30 */
-uint8_t fan_control_get_temp_off_threshold(void); /* 28 */
-```
-
-M100PG / ASRPro command contract:
-
-```text
-motor_speed_0 -> fan_control_set_manual_gear(0)
-motor_speed_1 -> fan_control_set_manual_gear(1)
-motor_speed_2 -> fan_control_set_manual_gear(2)
-motor_speed_3 -> fan_control_set_manual_gear(3)
-```
-
-4G telemetry additions:
-
-```text
-motor=<0..3>,fan_auto=<0|1>,temp_limit=30,temp_recover=28
-```
-
-### 3. Contracts
-
-- `APP/fan_control.c` is the only application policy owner for final fan output. It may call `pwm_motor_set_speed()`; Web/M100PG, ASRPro, telemetry, and sensor modules must not call `pwm_motor_set_speed()` directly for fan policy.
-- `fan_control_task()` reads only cached DHT11 state through `dht11_is_valid()` and `dht11_get_temperature()`; it must not call `DHT11_Read_Data()` or block on the 1-Wire bus.
-- Fixed thresholds for this MVP: auto starts at `temp >= 30°C`, recovers at `temp <= 28°C`, auto gear is `1` (`33%`).
-- If DHT11 is invalid and auto is inactive, auto must not start. If auto is active, invalid readings may hold auto for up to 3 seconds, then release.
-- `motor_speed_0` is the highest-priority off command. It must immediately set final output to `0`, clear `fan_auto`, and prevent high-temperature auto from reopening the fan until either:
-  - user sends `motor_speed_1..3`, or
-  - DHT11 temperature recovers to `<= 28°C`.
-- `motor_speed_1..3` clears manual-off override and sets the manual/base gear.
-- `fan_control_get_output_gear()` must report the final output gear used by telemetry `motor`, not merely the last downlink intent.
-- `fan_auto=1` means DHT11 high-temperature auto is currently contributing to final output. Manual-off override must report `fan_auto=0,motor=0`.
-
-### 4. Validation & Error Matrix
-
-| 现象 | 先查 | 必须验证 |
-|------|------|----------|
-| 高温后风扇不自动启动 | DHT11 valid、任务顺序、阈值 | `dht11_task` 在 `fan_control_task` 前运行；`temp >= 30` 时 `fan_auto=1,motor>=1` |
-| 高温时 `motor_speed_0` 关不掉 | 手动关闭优先级 | Web/语音都调用 `fan_control_set_manual_gear(0)`，不是直接写 PWM 或只改协议镜像 |
-| 手动关闭后风扇下一秒又打开 | manual-off override | 温度仍高且未下发 1..3 档时，`fan_auto=0,motor=0` 持续保持 |
-| 降温后再次升温不能自动开 | override 清除条件 | `temp <= 28` 后 override 清除；再次 `temp >= 30` 可自动开 |
-| `motor` telemetry 与实机不一致 | 输出档位来源 | `m100pg_bsp_collect_sample()` 读取 `fan_control_get_output_gear()` |
-| ASRPro 或 M100PG 行为不一致 | 调用路径分裂 | 两者都只调用 `fan_control_set_manual_gear()`，档位字典一致 |
-| 新增 telemetry 后上传失败 | TX buffer 长度 | `M100PG_PROTO_TX_BUF` 足够；`snprintf` 返回值不能达到 buffer 上限 |
-
-### 5. Good/Base/Bad Cases
-
-**Good：高温自动启动**
-
-```text
-DHT11 valid, temp=30, manual gear=0, no manual-off override
-期望：fan_auto=1,motor=1，PWM 约 33%。
-```
-
-**Good：最高优先级手动关闭**
-
-```text
-DHT11 valid, temp=31, fan_auto=1,motor=1
-Web 或 ASR 下发 motor_speed_0
-期望：fan_auto=0,motor=0；保持高温时不会自动重开。
-```
-
-**Base：用户恢复手动控制**
-
-```text
-高温 manual-off override 有效
-Web 或 ASR 下发 motor_speed_2
-期望：override 解除，manual gear=2，motor=2。
-```
-
-**Base：温度恢复解除关闭覆盖**
-
-```text
-高温期间下发 motor_speed_0 -> motor=0
-随后 temp <= 28
-期望：override 解除；下一次升温到 >=30 时可再次 fan_auto=1,motor=1。
-```
-
-**Bad：自动逻辑直接写 PWM**
-
-```c
-if (dht11_get_temperature() >= 30U) {
-    pwm_motor_set_speed(33U);
-}
-```
-
-这会绕过 `motor_speed_0` 最高优先级关闭，下一轮任务可能重新打开风扇。
-
-### 6. Tests Required
-
-- Keil Build 通过，`APP/fan_control.c/.h` 已加入 `MDK-ARM/helmet.uvprojx`。
-- `git diff --check` 通过；`APP/fan_control.h` 含 `FAN_CONTROL_H` include guard；触及 APP 文件 UTF-8 无 BOM + LF。
-- 搜索策略层直写：`rg "pwm_motor_set_speed\\(" APP --glob "!APP/pwm_motor.c" --glob "!APP/fan_control.c"` 只能命中底层声明或无策略调用。
-- 高温手动关闭实机测试：加热到 `fan_auto=1,motor=1` 后，通过 Web 和 ASR 分别下发 `motor_speed_0`，确认风扇立即停止且 telemetry 为 `fan_auto=0,motor=0`。
-- 手动恢复测试：高温关闭覆盖后下发 `motor_speed_1/2/3`，确认风扇进入对应档位。
-- 温度恢复测试：高温关闭覆盖后降至 `temp <= 28`，再升至 `temp >= 30`，确认自动功能可再次启动。
-- DHT11 失效测试（可选硬件场景）：自动已启动时短暂无效不立刻停，连续无效约 3 秒后释放。
-
-### 7. Wrong vs Correct
-
-#### Wrong
-
-```c
-static void bsp_motor_set_speed(uint8_t gear, void *user)
-{
-    (void)user;
-    pwm_motor_set_speed(kMotorGearToPercent[gear]);
-}
-```
-
-#### Correct
-
-```c
-static void bsp_motor_set_speed(uint8_t gear, void *user)
-{
-    (void)user;
-    fan_control_set_manual_gear(gear);
 }
 ```

@@ -1,8 +1,8 @@
 #include "m100pg_bsp.h"
 #include "m100pg.h"
-#include "fan_control.h"
 #include "rgb_led.h"
 #include "helmet_alarm.h"
+#include "pwm_motor.h"
 #include "dht11.h"
 #include "mq2.h"
 #include "mpu6050.h"
@@ -10,6 +10,8 @@
 
 m100pg_proto_t g_m100pg_proto;
 
+/* 0..3 档 → PWM 占空比百分比。pwm_motor_set_speed 接受 0..100。 */
+static const uint8_t kMotorGearToPercent[4] = { 0U, 33U, 66U, 100U };
 static const rgb_led_color_t kProtoLedToRgb[] = {
     RGB_LED_COLOR_OFF,
     RGB_LED_COLOR_WHITE,
@@ -32,7 +34,8 @@ static void bsp_led_set(helmet_led_state_t state, void *user)
 static void bsp_motor_set_speed(uint8_t gear, void *user)
 {
     (void)user;
-    fan_control_set_manual_gear(gear);
+    if (gear > 3U) gear = 3U;
+    pwm_motor_set_speed(kMotorGearToPercent[gear]);
 }
 
 static void bsp_on_unknown(const char *line, uint16_t len, void *user)
@@ -63,10 +66,6 @@ static void bsp_collect_sample(helmet_telemetry_t *out, void *user)
 
     out->hr   = (hr_valid   != 0U) ? heart_rate : 0;
     out->spo2 = (spo2_valid != 0U) ? spo2       : 0;
-    out->motor = fan_control_get_output_gear();
-    out->fan_auto = fan_control_is_auto_active();
-    out->temp_limit = fan_control_get_temp_on_threshold();
-    out->temp_recover = fan_control_get_temp_off_threshold();
 
     if (mpu6050_get_alarm_flags() != 0U) {
         out->led = HELMET_LED_RED;
@@ -74,7 +73,7 @@ static void bsp_collect_sample(helmet_telemetry_t *out, void *user)
         out->led = HELMET_LED_YELLOW;
     }
 
-    /* led 由协议库预填 intent；报警时覆盖为本地状态。 */
+    /* led / motor 由协议库预填 intent；此处不覆盖。 */
 }
 
 static int bsp_send_frame(const char *buf, uint16_t len, void *user)

@@ -194,8 +194,7 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
                       "pitch=%.1f,roll=%.1f,yaw=%.1f,"
                       "fall=%u,collision=%u,"
                       "hr=%ld,spo2=%ld,"
-                      "led=%s,motor=%u,"
-                      "fan_auto=%u,temp_limit=%u,temp_recover=%u\n",
+                      "led=%s,motor=%u\n",
                       (unsigned)t.temp,
                       (unsigned)t.hum,
                       (unsigned long)t.mq2,
@@ -208,10 +207,7 @@ int m100pg_proto_publish_telemetry(m100pg_proto_t *p)
                       (long)t.hr,
                       (long)t.spo2,
                       led_state_to_string(t.led),
-                      (unsigned)t.motor,
-                      (unsigned)t.fan_auto,
-                      (unsigned)t.temp_limit,
-                      (unsigned)t.temp_recover);
+                      (unsigned)t.motor);
 
     if (n < 0 || (size_t)n >= sizeof buf) return -2;
     return proto_emit(p, buf, (uint16_t)n);

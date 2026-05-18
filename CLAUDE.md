@@ -26,13 +26,13 @@ helmet.ioc      CubeMX 工程配置文件
 
 ### 执行流程
 
-`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2, TIM3) → ADC DMA 启动 → rgb_led_init（三色 LED 默认关闭） → pwm_motor_init（TB6612FNG 默认安全停止） → fan_control_init（风扇手动/高温自动仲裁） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → st7735_init（PB0/PB1/PA7 软件 SPI，自检色块） → lcd_app_init（传感器数据显示页面） → asrpro_init（USART1 单字节中断接收） → m100pg_init（USART2 空闲 DMA 接收） → `scheduler_init()` → 主循环调用 `scheduler_run()`
+`main()` → HAL_Init → SystemClock_Config(HSE 8MHz + PLL ×9 = 72MHz) → 外设初始化(GPIO, DMA, USART1, ADC1, TIM1, I2C1, I2C2, USART2, TIM3) → ADC DMA 启动 → rgb_led_init（三色 LED 默认关闭） → pwm_motor_init（TB6612FNG 默认安全停止） → DHT11_Init → mpu6050_init（含 DMP 固件加载与自检） → max30102_init（Part ID 自检 + SpO2 模式配置） → st7735_init（PB0/PB1/PA7 软件 SPI，自检色块） → lcd_app_init（传感器数据显示页面） → asrpro_init（USART1 单字节中断接收） → m100pg_init（USART2 空闲 DMA 接收） → `scheduler_init()` → 主循环调用 `scheduler_run()`
 
-M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须通过 `helmet_alarm_set_base_led()` 更新普通 LED 状态，不得直接写 PB12/PB13/PB14。上传 telemetry 包含 `mq2` 归一化趋势指数、`mq2_alarm`、MPU6050 的 `fall` / `collision` 报警状态，以及风扇最终档位 `motor`、高温自动状态 `fan_auto`、固定阈值 `temp_limit=30` / `temp_recover=28`；`APP/helmet_alarm.c` 以 20ms 周期读取报警状态，跌倒/碰撞红灯至少快闪 15s 且优先于 MQ2，MQ2 趋势异常黄灯至少快闪 5s，解除后恢复云端下发颜色。
+M100PG 4G DTU 分为硬件链路和协议两层：`APP/m100pg.c` 负责 USART2 DMA、RingBuffer、上传调度和下发动作执行；`APP/m100pg_protocol.c` 负责 `UP,...\r\n` 上传帧格式化和 `LED_ON`、`LED_OFF`、`LED_WHITE`、`LED_RED`、`LED_GREEN` 完整命令解析。云端 LED 控制必须通过 `helmet_alarm_set_base_led()` 更新普通 LED 状态，不得直接写 PB12/PB13/PB14。上传 telemetry 包含 `mq2` 归一化趋势指数、`mq2_alarm`、MPU6050 的 `fall` / `collision` 报警状态；`APP/helmet_alarm.c` 以 20ms 周期读取报警状态，跌倒/碰撞红灯至少快闪 15s 且优先于 MQ2，MQ2 趋势异常黄灯至少快闪 5s，解除后恢复云端下发颜色。
 
 MQ2 使用 ADC1 DMA 30 点均值和清洁空气 R0 校准计算 `Rs/R0`。`mq2` 遥测和 LCD 显示是归一化趋势指数，清洁空气约为 100；`mq2_get_ppm()` 仅是 LPG 曲线折算参考，不作为精确定量浓度。报警迟滞阈值集中在 `APP/mq2.c` 顶部：趋势指数 180 连续 3 次触发，130 连续 10 次恢复，并忽略前 5 次任务样本。
 
-ASRPro 天问离线语音模块使用 USART1：ASR_TX 接 PA10，ASR_RX 接 PA9。默认固件把 USART1 作为纯语音串口，`APP/asrpro.c` 通过单字节中断接收并在调度器任务中解析 `led_on`、`led_off`、`motor_speed_0..3`。语音 LED 控制同样必须通过 `helmet_alarm_set_base_led()`，风扇档位必须通过 `fan_control_set_manual_gear()` 更新手动基础档位，档位映射为 `{0, 33, 66, 100}`；`motor_speed_0` 是最高优先级关闭指令，高温自动打开期间也必须立即停风扇，直到用户下发 1/2/3 档或温度恢复到 28°C 后解除关闭覆盖。`APP/asrpro.h` 中 `ASRPRO_ENABLE_USART1_DEBUG` 默认关闭，避免 `printf` 文本进入语音模块；临时串口一调试时可打开该宏或关闭 `ASRPRO_ENABLE_COMMAND_EXECUTION` 后重新编译。
+ASRPro 天问离线语音模块使用 USART1：ASR_TX 接 PA10，ASR_RX 接 PA9。默认固件把 USART1 作为纯语音串口，`APP/asrpro.c` 通过单字节中断接收并在调度器任务中解析 `led_on`、`led_off`、`motor_speed_0..3`。语音 LED 控制同样必须通过 `helmet_alarm_set_base_led()`，电机档位映射为 `{0, 33, 66, 100}`。`APP/asrpro.h` 中 `ASRPRO_ENABLE_USART1_DEBUG` 默认关闭，避免 `printf` 文本进入语音模块；临时串口一调试时可打开该宏或关闭 `ASRPRO_ENABLE_COMMAND_EXECUTION` 后重新编译。
 
 ### 任务调度器（`APP/scheduler.c`）
 

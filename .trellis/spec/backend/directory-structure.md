@@ -36,7 +36,6 @@ helmet/
 │   ├── rgb_led.c / .h                # 共阴三色 RGB LED 驱动
 │   ├── helmet_alarm.c / .h           # 本地安全报警仲裁（RGB 唯一直写者）
 │   ├── pwm_motor.c / .h              # TB6612FNG + 风扇 PWM 调速
-│   ├── fan_control.c / .h            # 风扇手动 / DHT11 高温自动仲裁
 │   ├── m100pg.c / .h                 # M100PG 4G DTU 链路（USART2 DMA）
 │   ├── m100pg_bsp.c / .h             # 4G 协议 ↔ 板级驱动桥接
 │   ├── m100pg_protocol.c / .h        # 上行 telemetry + 下行命令字典
@@ -124,7 +123,6 @@ static task_t scheduler_task[] = {
     {asrpro_task,      10,   0},  // ASRPro 语音命令消费
     {mq2_task,         100,  0},  // 烟雾浓度
     {dht11_task,       1000, 0},  // 温湿度
-    {fan_control_task, 1000, 0},  // 风扇手动 / 高温自动仲裁（读取 DHT11 缓存）
     {mpu6050_task,     10,   0},  // DMP 姿态 + 跌倒/碰撞报警
     {helmet_alarm_task, 20,  0},  // 本地报警 RGB 仲裁
     {max30102_task,    50,   0},  // 心率 / SpO2
