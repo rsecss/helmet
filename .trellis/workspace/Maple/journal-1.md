@@ -729,3 +729,46 @@ ASRPro 离线语音模块接入 STM32 USART1：硬件实机已完成 `led_on` / 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: MQ2 烟雾趋势异常报警闭环
+
+**Date**: 2026-05-18
+**Task**: MQ2 烟雾趋势异常报警闭环
+**Branch**: `dev`
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| 项目 | 记录 |
+|---|---|
+| MQ2 算法 | 将 MQ2 从固定 ppm 魔法公式改为 ADC DMA 均值、清洁空气 R0 校准、Rs/R0 曲线和归一化趋势指数；清洁空气约为 100。 |
+| 报警状态 | 新增 `mq2_is_trend_alarm()`，使用 180/130 趋势指数迟滞阈值、3 次触发、10 次恢复、前 5 次忽略。 |
+| 本地输出 | `helmet_alarm_task()` 增加报警源表，MPU6050 红灯优先，MQ2 黄灯快闪保持 5 秒。 |
+| 遥测/LCD | 上行增加 `mq2_alarm`，`mq2` 改为趋势指数；LCD 烟雾行报警时显示 `ALM`。 |
+| 文档/spec | 同步 README、CLAUDE、CHANGELOG、工程功能核对清单，并在 `.trellis/spec/backend/database-guidelines.md` 增加 MQ2 跨模块合同。 |
+| 验证 | 用户已实机测试成功；本地通过 `git diff --check`、APP 头文件守卫、UTF-8 无 BOM/LF、MQ2 禁止阻塞模式搜索。 |
+| 未提交项 | 保留未提交 `MDK-ARM/helmet.uvoptx`/`helmet.uvprojx` 本地 Keil 状态；未纳入功能提交。 |
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1d9e9e8` | (see git log) |
+| `d9885bd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
