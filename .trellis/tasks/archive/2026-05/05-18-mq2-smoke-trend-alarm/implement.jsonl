@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "APP module boundaries and naming"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "sensor state and telemetry data flow"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "APP code quality and encoding rules"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "sensor invalid value handling"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "MQ2 alarm data crosses sensor alarm telemetry LCD"}
