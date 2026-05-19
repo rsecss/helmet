@@ -1,0 +1,6 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "final firmware quality checks"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "review module boundary changes"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "review cross-layer payload consistency"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "review telemetry and state sharing"}

@@ -10,6 +10,16 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-19
+
+### Added
+
+- 新增 MQ2 归一化烟雾趋势异常状态，接入 LCD `ALM`、4G `mq2_alarm` 遥测和本地黄灯快闪报警仲裁。
+
+### Changed
+
+- MQ2 采集改为基于清洁空气 R0 校准和 `Rs/R0` 的趋势指数，遥测 `mq2` 字段不再作为精确定量 ppm 表述。
+
 ## [0.8.0] - 2026-05-05
 
 ### Added
@@ -126,7 +136,8 @@
 
 - 初始化 SmartHelm 智能头盔项目框架：STM32F103C8T6 基础工程、CubeMX 时钟与外设配置、协作调度器骨架 ([86a9534](https://github.com/rsecss/helmet/commit/86a9534))
 
-[Unreleased]: https://github.com/rsecss/helmet/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/rsecss/helmet/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/rsecss/helmet/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rsecss/helmet/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rsecss/helmet/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/rsecss/helmet/compare/v0.5.2...v0.6.0

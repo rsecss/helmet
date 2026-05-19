@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
-- **Last Active**: 2026-05-05
+- **Total Sessions**: 16
+- **Last Active**: 2026-05-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~731 | Active |
+| `journal-1.md` | ~774 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-05-18 | MQ2 烟雾趋势异常报警闭环 | `1d9e9e8`, `d9885bd` | `dev` |
 | 15 | 2026-05-05 | 归档 ASRPro 离线语音控制任务 | `62a2c3b`, `69daf1d` | `dev` |
 | 14 | 2026-05-05 | MPU6050倒地与碰撞报警 | `1a17cad` | `dev` |
 | 13 | 2026-05-05 | 归档 4G 云端联调任务 | `7f4a67a` | `dev` |

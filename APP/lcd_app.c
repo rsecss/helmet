@@ -35,19 +35,19 @@ static void lcd_app_invalidate_cache(void)
 }
 
 /**
- * @brief       限制烟雾浓度显示范围，避免文本越界
- * @param       ppm  MQ2 浓度值
- * @retval      限幅后的整数 ppm
+ * @brief       限制烟雾趋势显示范围，避免文本越界
+ * @param       index MQ2 趋势指数
+ * @retval      限幅后的整数趋势指数
  */
-static uint32_t lcd_app_clamp_mq2(float ppm)
+static uint32_t lcd_app_clamp_mq2(float index)
 {
-    if (ppm <= 0.0f) {
+    if (index <= 0.0f) {
         return 0UL;
     }
-    if (ppm > 999999.0f) {
+    if (index > 999999.0f) {
         return 999999UL;
     }
-    return (uint32_t)(ppm + 0.5f);
+    return (uint32_t)(index + 0.5f);
 }
 
 /**
@@ -125,8 +125,13 @@ void lcd_app_task(void)
     }
     lcd_app_draw_line(1U, line);
 
-    (void)snprintf(line, sizeof(line), "\xE7\x83\x9F\xE9\x9B\xBE:%lu",
-                   (unsigned long)lcd_app_clamp_mq2(mq2_get_ppm()));
+    if (mq2_is_trend_alarm() != 0U) {
+        (void)snprintf(line, sizeof(line), "\xE7\x83\x9F\xE9\x9B\xBE:%lu ALM",
+                       (unsigned long)lcd_app_clamp_mq2(mq2_get_trend_index()));
+    } else {
+        (void)snprintf(line, sizeof(line), "\xE7\x83\x9F\xE9\x9B\xBE:%lu",
+                       (unsigned long)lcd_app_clamp_mq2(mq2_get_trend_index()));
+    }
     lcd_app_draw_line(2U, line);
 
     if (hr_valid != 0U) {

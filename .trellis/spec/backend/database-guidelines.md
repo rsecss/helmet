@@ -323,6 +323,130 @@ void sensor_task(void)
 
 ---
 
+## Scenario: MQ2 Smoke Trend Alarm Fanout
+
+### 1. Scope / Trigger
+
+适用于 `APP/mq2.c/.h` 基于 ADC1 DMA 产生烟雾趋势值，并把趋势异常扇出到 LCD、4G telemetry、RGB 本地报警仲裁的跨模块变更。目标是把 MQ2 当作工程趋势提示，不宣称标准气体定量浓度。
+
+### 2. Signatures / Payload Fields
+
+`APP/mq2.h` public API:
+
+```c
+void mq2_task(void);
+float mq2_get_ppm(void);          /* LPG 曲线折算值，仅作趋势参考 */
+float mq2_get_trend_index(void);  /* 清洁空气约为 100 */
+float mq2_get_rs_r0_ratio(void);
+float mq2_get_voltage(void);
+float mq2_get_r0(void);
+uint8_t mq2_is_calibrated(void);
+uint8_t mq2_is_trend_alarm(void);
+```
+
+`helmet_telemetry_t` 必须包含并上传：
+
+```c
+uint32_t mq2;       /* rounded mq2_get_trend_index() */
+uint8_t  mq2_alarm; /* mq2_is_trend_alarm() */
+```
+
+上行 payload 字段顺序包含：
+
+```text
+temp=%u,hum=%u,mq2=%lu,mq2_alarm=%u,pitch=%.1f,roll=%.1f,yaw=%.1f
+```
+
+### 3. Contracts
+
+- `mq2_task()` 是 MQ2 趋势值、`R0`、`Rs/R0` 和报警状态的唯一写者；LCD、4G、RGB 只能通过 `mq2_*` public getters 读取。
+- ADC 采集只能使用 `dma_buff[30]` 和 `HAL_ADC_Start_DMA()` 已启动的循环 DMA；不得恢复阻塞式 `HAL_ADC_PollForConversion()` 常规读取任务。
+- 上电清洁空气窗口内完成 `R0` 校准，报警计数忽略前 5 次任务样本。实机测试时上电前 5 次采样必须处于清洁空气，否则 `R0` 会被污染。
+- `mq2` 遥测字段和 LCD 显示使用归一化趋势指数，清洁空气约为 `100`；`mq2_get_ppm()` 只作为 LPG 曲线折算参考，不作为论文中的精确定量浓度。
+- 报警迟滞阈值集中在 `APP/mq2.c` 顶部：`MQ2_TREND_ALARM_ON_INDEX=180.0f`、`MQ2_TREND_ALARM_OFF_INDEX=130.0f`、连续触发 `3` 次、连续恢复 `10` 次。
+- `helmet_alarm_task()` 中 MPU6050 跌倒/碰撞红灯优先于 MQ2 黄灯；MQ2 报警只输出黄灯快闪，不覆盖更高优先级红灯。
+- `m100pg_bsp.c` 可在 MQ2 报警且无 MPU6050 报警时把 telemetry 的 `led` 镜像为 `yellow`；下行命令不新增 `led_color_yellow`。
+- 若硬件在 MQ2 AO 到 PA0 之间存在分压，必须调整 `MQ2_SENSOR_OUTPUT_SCALE`，否则 `Rs` 计算基于错误电压域。
+
+### 4. Validation & Error Matrix
+
+| 现象 | 先查 | 必须验证 |
+|------|------|----------|
+| 空气中趋势值不是约 100 | 上电清洁空气校准窗口 | 上电后前 5 次采样没有气体干扰，`mq2_is_calibrated()` 变为 1，`mq2_get_r0()` 为正值 |
+| 打火机气体靠近趋势值方向不对 | `Rs/R0` 与电压回路 | 气体靠近时 `mq2_get_rs_r0_ratio()` 下降，`mq2_get_trend_index()` 上升 |
+| 打火机气体明显变化但不报警 | 阈值、EMA、连续计数 | 趋势指数连续 3 次达到 `MQ2_TREND_ALARM_ON_INDEX` 后 `mq2_is_trend_alarm()` 为 1 |
+| 空气恢复后黄灯长时间不灭 | 恢复迟滞和计数 | 趋势指数连续 10 次低于 `MQ2_TREND_ALARM_OFF_INDEX` 后 `mq2_is_trend_alarm()` 为 0 |
+| 云端 `mq2` 看似 ppm | 字段语义文档 | README 和协议注释必须写“归一化趋势指数”，不要写 ppm 估算 |
+| 云端 LED 下发覆盖黄灯报警 | RGB 调用路径 | LED 命令走 `helmet_alarm_set_base_led()`；报警任务仍可输出黄灯快闪 |
+| STM32 ADC 输入过压 | MQ2 模块供电和 AO 连接 | 确认 PA0 最大电压不超过 3.3V；若有分压，更新 `MQ2_SENSOR_OUTPUT_SCALE` |
+
+### 5. Good/Base/Bad Cases
+
+**Good：烟雾趋势异常**
+
+```text
+清洁空气上电 -> mq2≈100 -> 打火机气体靠近 -> mq2 上升并连续越过 180
+期望：mq2_alarm=1，LCD 烟雾行显示 ALM，本地 RGB 黄灯快闪。
+```
+
+**Base：清洁空气稳定**
+
+```text
+清洁空气上电并保持通风
+期望：mq2≈100，mq2_alarm=0，RGB 不进入 MQ2 黄灯报警。
+```
+
+**Bad：把 MQ2 写成精确定量 ppm**
+
+```text
+论文或 README 写“检测 LPG=150ppm”
+```
+
+当前工程只能支撑“MQ2 归一化趋势指数约 150”，不能支撑标准气体浓度认证。
+
+### 6. Tests Required
+
+- `git diff --check` 通过；本轮触及 `APP/*.h` 有 include guard；本轮触及源码 UTF-8 无 BOM 且 LF。
+- 搜索 `APP/mq2.c APP/mq2.h` 不得命中 `HAL_ADC_PollForConversion`、`HAL_MAX_DELAY`、`mq2_task1`、周期 `printf`。
+- Keil Build 通过，确认 `pow()` 链接不报错，`APP/mq2.c` 仍在 `MDK-ARM/helmet.uvprojx`。
+- 实机清洁空气上电，观察 `mq2` telemetry 或 LCD 稳定在约 `100`，`mq2_alarm=0`。
+- 实机用打火机气体靠近，观察 `mq2` 上升；连续越过阈值后 LCD 出现 `ALM`，RGB 黄灯快闪，telemetry 包含 `mq2_alarm=1,led=yellow`。
+- 移开气体并通风，观察 `mq2` 下降；连续恢复后 `mq2_alarm=0`，RGB 恢复基础灯色或关闭。
+- 同时触发 MPU6050 报警和 MQ2 报警时，RGB 必须红灯优先；telemetry 可保留 `mq2_alarm=1` 以表达并发状态。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+void mq2_task1(void)
+{
+    HAL_ADC_Start(&hadc1);
+    HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+    adc_value = HAL_ADC_GetValue(&hadc1);
+}
+```
+
+#### Correct
+
+```c
+void mq2_task(void)
+{
+    if (mq2_measure() == 0U) {
+        mq2_update_trend_alarm(mq2_state.trend_index);
+        return;
+    }
+    if (mq2_update_calibration() == 0U) {
+        mq2_update_trend_alarm(mq2_state.trend_index);
+        return;
+    }
+    mq2_update_concentration();
+    mq2_update_trend_alarm(mq2_state.trend_index);
+}
+```
+
+---
+
 ## Scenario: M100PG USART2 DMA 透传调试
 
 ### 1. Scope / Trigger
