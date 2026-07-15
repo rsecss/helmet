@@ -33,7 +33,7 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if ! git branch -r --contains "$TAG" | grep -qE "origin/main$"; then
-            echo "::error::tag $TAG 不在 main 分支上。发版必须先把 release PR 合到 main，再从 main HEAD 打 tag。"
+            echo "::error::tag $TAG 不在 main 分支上。发版必须在 main HEAD 上打 tag。"
             exit 1
           fi
           echo "✓ tag $TAG 已合入 main"
