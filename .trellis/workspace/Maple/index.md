@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
+- **Total Sessions**: 18
 - **Last Active**: 2026-07-18
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~816 | Active |
+| `journal-1.md` | ~861 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-07-18 | Apache-2.0 许可证与 v0.9.1 发版 | `f6dee87`, `6d9d190` | `main` |
 | 17 | 2026-07-18 | MPU6050 Mahony 姿态解算迁移 | `ff47ec3`, `083c616` | `main` |
 | 16 | 2026-05-18 | MQ2 烟雾趋势异常报警闭环 | `1d9e9e8`, `d9885bd` | `dev` |
 | 15 | 2026-05-05 | 归档 ASRPro 离线语音控制任务 | `62a2c3b`, `69daf1d` | `dev` |

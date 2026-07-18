@@ -817,3 +817,47 @@ ASRPro 离线语音模块接入 STM32 USART1：硬件实机已完成 `led_on` / 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: Apache-2.0 许可证与 v0.9.1 发版
+
+**Date**: 2026-07-18
+**Task**: Apache-2.0 许可证与 v0.9.1 发版
+**Branch**: `main`
+
+### Summary
+
+调研并选定 Apache-2.0 许可证，添加 LICENSE 与 README 免责声明，项目名统一为 SmartHelmet，架构图重绘为 Mermaid，发布 v0.9.1。
+
+### Main Changes
+
+| 项目 | 记录 |
+|---|---|
+| 许可证调研 | 对比 Apache-2.0 / BSD-3 / GPL-3.0 / MPL-2.0（MIT 用户排除）；核实 Apache-2.0 第 7/8/9 条免责与保修隔离、EU PLD 2024/2853 非商业开源豁免（EUR-Lex 原文）；确认仓库内 ST HAL（BSD-3）与 CMSIS（Apache-2.0）约束。选定 Apache-2.0。 |
+| 许可落地 | 根目录添加 LICENSE 官方全文；NOTICE 评估后不保留（署名义务由 Drivers/ 各自 LICENSE.txt 承载）；max30102.c 判定为参考实现不附 Maxim 声明，保留来源注释。 |
+| 免责声明 | README 新增免责声明章节（AS-IS、仅供学习交流、未经安全/医疗认证、不承诺可靠性、不担责），并简化许可证章节为单行链接。 |
+| 项目名统一 | SmartHelm → SmartHelmet：CLAUDE.md、AGENTS.md、Trellis spec 三篇同步；历史归档 PRD、journal、CHANGELOG 历史条目保持原样。 |
+| 架构图 | README 系统架构图由 ASCII 重绘为 Mermaid flowchart（中文/全角字符宽度导致的渲染错位根治）。 |
+| 发版 | CHANGELOG [Unreleased] 切割为 [0.9.1] - 2026-07-18；tag v0.9.1 推送后 release.yml 三段（validate/quality/release）42s 通过，GitHub Release 已发布。 |
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f6dee87` | (see git log) |
+| `6d9d190` | (see git log) |
+
+### Testing
+
+- [OK] Quality Gate 通过（run 29641850732，21s）
+- [OK] release.yml validate/quality/release 三段通过（run 29641946388，42s）
+- [OK] GitHub Release v0.9.1 已发布并含 CHANGELOG 抽取内容
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
