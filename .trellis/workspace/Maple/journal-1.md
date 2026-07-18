@@ -772,3 +772,48 @@ ASRPro 离线语音模块接入 STM32 USART1：硬件实机已完成 `led_on` / 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: MPU6050 Mahony 姿态解算迁移
+
+**Date**: 2026-07-18
+**Task**: MPU6050 Mahony 姿态解算迁移
+**Branch**: `main`
+
+### Summary
+
+移除 InvenSense 专有 DMP 驱动，MPU6050 姿态解算改为自实现 Mahony 互补滤波；公开接口与遥测契约不变，消除许可分发风险，并补强陀螺零偏校准的失败恢复路径。
+
+### Main Changes
+
+| 项目 | 记录 |
+|---|---|
+| 姿态解算 | 移除 InvenSense DMP（`mpu6050_inv_mpu*` 四文件与 3062 字节固件），改为 MCU 侧 Mahony 互补滤波，固定 10ms 步长（KP=2.0、KI=0.005），四元数转欧拉角约定与原 DMP 输出一致。 |
+| 契约保持 | `pitch/roll/yaw`、原始六轴全局量、报警 getter 与遥测字段签名不变；`m100pg`、`lcd_app`、`helmet_alarm`、`scheduler` 零改动。 |
+| 零偏鲁棒性 | 寄存器配置态与陀螺零偏有效态分离；上电校准显式返回成败，失败后运行期以 2 秒静止窗口峰峰值判稳自恢复，首次恢复后重置 Mahony 状态；已校准后候选偏移超约 3dps 拒绝，防止把旋转吸收为零偏。 |
+| 工程/文档 | Keil 工程移除四个 InvenSense 文件登记；README、CLAUDE.md、CHANGELOG [Unreleased]、backend spec 四篇（database/directory/error-handling/logging）同步为 Mahony 契约。 |
+| 验证 | GCC 主机桩 `-std=c99 -Wall -Wextra -Werror` 回归通过；`grep -ri invensense APP/` 与 `grep -r dmp_ APP/` 零残留；实机烧录验证 pitch/roll 静止稳定（0~3°）、fall/collision 报警可触发可恢复。 |
+| 附带提交 | `.codex/hooks/session-start.py` JSON 输出改 `ensure_ascii=True`（Windows 控制台编码），独立 chore 提交。 |
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ff47ec3` | (see git log) |
+| `083c616` | (see git log) |
+
+### Testing
+
+- [OK] GCC 主机桩 `-std=c99 -Wall -Wextra -Werror` 零偏恢复/yaw 稳定性回归通过
+- [OK] `grep -ri invensense APP/`、`grep -r dmp_ APP/` 零残留
+- [OK] 实机烧录：pitch/roll 静止稳定（0~3°），fall/collision 报警可触发可恢复
+- [OK] Keil F7 编译（实机验证前置步骤，由开发者本机完成）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
