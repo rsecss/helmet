@@ -37,12 +37,14 @@ typedef enum {
 
 ```c
 /* 示例：APP/mpu6050.c */
-uint8_t mpu6050_dmp_get_data(float *p, float *r, float *y)
+uint8_t mpu6050_get_gyroscope(short *gx, short *gy, short *gz)
 {
-    if (dmp_read_fifo(...)) return 1;           // FIFO 读取失败
-    if (!(sensors & INV_WXYZ_QUAT)) return 2;   // 姿态数据无效
-    /* ... */
-    return 0;                                   // 成功
+    if (HAL_I2C_Mem_Read(&hi2c1, (MPU6050_ADDR << 1), MPU6050_GYRO_XOUTH_REG,
+                         I2C_MEMADD_SIZE_8BIT, buf, 6,
+                         MPU6050_I2C_TIMEOUT_MS) != HAL_OK)
+        return 1;
+    /* 解码三轴原始值 */
+    return 0;
 }
 ```
 
@@ -65,7 +67,8 @@ uint8_t mpu6050_dmp_get_data(float *p, float *r, float *y)
 
 ```c
 if (HAL_I2C_Mem_Read(&hi2c1, (MPU6050_ADDR << 1), MPU6050_ACCEL_XOUTH_REG,
-                     I2C_MEMADD_SIZE_8BIT, buf, 6, HAL_MAX_DELAY) != HAL_OK)
+                     I2C_MEMADD_SIZE_8BIT, buf, 6,
+                     MPU6050_I2C_TIMEOUT_MS) != HAL_OK)
     return 1;   // 传播错误，不阻塞调度器
 ```
 
@@ -76,11 +79,12 @@ MPU6050 初始化中任一步失败直接 `return`，不阻塞 `main()` 后续�
 ```c
 void mpu6050_init(void)
 {
-    if (mpu_init(&int_param) != 0) return;
-    if (mpu_set_sensors(INV_XYZ_GYRO | INV_XYZ_ACCEL)) return;
-    /* ... */
-    run_self_test();   // 自检失败不阻塞，仅影响校准精度
-    mpu_set_dmp_state(1);
+    mpu6050_configured = 0U;
+    mpu6050_clear_result();
+    if (mpu6050_write_reg(MPU6050_PWR_MGMT_1_REG, MPU6050_PWR_RESET)) return;
+    /* 唤醒并配置采样率、DLPF、量程；任一步失败直接返回 */
+    gyro_bias_valid = mpu6050_calibrate_gyro_bias();
+    mpu6050_configured = 1U;  /* 零偏失败可由周期任务在静止窗口内恢复 */
 }
 ```
 

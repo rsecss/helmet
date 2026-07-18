@@ -1,0 +1,10 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "MPU6050 module ownership, public API and Keil registration boundaries"}
+{"file": "APP/scheduler.c", "reason": "authoritative 10ms task period used by fixed Mahony dt"}
+{"file": "APP/mpu6050.c", "reason": "existing Mahony, gyro calibration and alarm implementation to continue"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "DMP removal affects module, consumers, project registration and docs"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "firmware quality gate, encoding and sensor algorithm validation"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "initialization diagnostics without high-frequency blocking logs"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "I2C and calibration failure semantics"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "10ms cooperative scheduler and sensor runtime-state contracts"}

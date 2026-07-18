@@ -122,9 +122,9 @@ int main(void)
 #else
   (void)init_result;
 #endif
-  mpu6050_init();     // MPU6050 姿态传感器初始化（含 DMP）
+  mpu6050_init();     // MPU6050 姿态传感器初始化（Mahony）
 #if ASRPRO_ENABLE_USART1_DEBUG
-  printf("[MPU6050] init done\r\n");
+  printf("[MPU6050] init=%u\r\n", mpu6050_is_ready());
 #endif
   init_result = max30102_init();    // MAX30102 心率血氧传感器初始化
 #if ASRPRO_ENABLE_USART1_DEBUG

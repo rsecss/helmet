@@ -1,0 +1,9 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "verify no blocking runtime debug residue"}
+{"file": "MDK-ARM/helmet.uvprojx", "reason": "verify deleted InvenSense sources are absent from Keil project"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "run encoding, static and firmware quality checks"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "verify calibration and I2C failures are explicit"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "verify every DMP reference and consumer contract"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "verify scheduler and runtime-state behavior"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "verify module boundaries and removed file registrations"}

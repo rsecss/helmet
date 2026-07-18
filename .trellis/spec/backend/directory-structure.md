@@ -30,8 +30,7 @@ helmet/
 │   ├── scheduler.c / .h              # 协作式任务调度器
 │   ├── mq2.c / .h                    # MQ2 烟雾传感器（ADC+DMA）
 │   ├── dht11.c / .h                  # DHT11 温湿度传感器（单总线）
-│   ├── mpu6050.c / .h                # MPU6050 六轴姿态 + 跌倒/碰撞报警
-│   ├── mpu6050_inv_mpu*.c / .h       # InvenSense 官方驱动（精简版 + DMP）
+│   ├── mpu6050.c / .h                # MPU6050 六轴 Mahony 姿态 + 跌倒/碰撞报警
 │   ├── max30102.c / .h               # MAX30102 心率血氧传感器（I2C2）
 │   ├── rgb_led.c / .h                # 共阴三色 RGB LED 驱动
 │   ├── helmet_alarm.c / .h           # 本地安全报警仲裁（RGB 唯一直写者）
@@ -103,7 +102,7 @@ helmet/
 | 类别 | 规则 | 示例 |
 |------|------|------|
 | 文件名 | 小写 + 下划线，`.c` / `.h` 成对 | `mpu6050.c`, `m100pg.h` |
-| 函数名 | `模块名_动词_对象` snake_case | `mpu6050_dmp_get_data`, `ringbuffer_write` |
+| 函数名 | `模块名_动词_对象` snake_case | `mpu6050_get_gyroscope`, `ringbuffer_write` |
 | 变量名 | snake_case | `last_run_time`, `fall_flag` |
 | 全局变量 | 简短但有区分性，.h 用 `extern` 声明、.c 定义 | `pitch`, `aacx`, `usart_rx_dma_buffer` |
 | 宏 / 常量 | UPPER_SNAKE_CASE | `RINGBUFFER_SIZE`, `MPU6050_ADDR`, `DEFAULT_MPU_HZ` |
@@ -123,7 +122,7 @@ static task_t scheduler_task[] = {
     {asrpro_task,      10,   0},  // ASRPro 语音命令消费
     {mq2_task,         100,  0},  // 烟雾浓度
     {dht11_task,       1000, 0},  // 温湿度
-    {mpu6050_task,     10,   0},  // DMP 姿态 + 跌倒/碰撞报警
+    {mpu6050_task,     10,   0},  // Mahony 姿态 + 跌倒/碰撞报警
     {helmet_alarm_task, 20,  0},  // 本地报警 RGB 仲裁
     {max30102_task,    50,   0},  // 心率 / SpO2
     {lcd_app_task,     200,  0},  // HUD 脏刷新
@@ -134,7 +133,6 @@ static task_t scheduler_task[] = {
 ```c
 /* 1. include 本模块头文件 + 依赖 */
 #include "mpu6050.h"
-#include "mpu6050_inv_mpu.h"
 
 /* 2. 外部 HAL 句柄 */
 extern I2C_HandleTypeDef hi2c1;
@@ -143,8 +141,8 @@ extern I2C_HandleTypeDef hi2c1;
 float pitch, roll, yaw;
 
 /* 4. 私有常量与静态辅助函数（static） */
-#define Q30 1073741824.0f
-static unsigned short inv_row_2_scale(const signed char *row) { ... }
+#define MPU6050_MAHONY_DT 0.01f
+static void mpu6050_mahony_update(void) { ... }
 
 /* 5. 导出函数：init / task / 数据获取 */
 void mpu6050_init(void) { ... }
@@ -153,7 +151,7 @@ void mpu6050_task(void) { ... }
 
 **推荐参考模块：**
 - `APP/scheduler.c` — 简洁的调度器，入门阅读
-- `APP/mpu6050.c` — 带 DMP 姿态解算、跌倒/碰撞报警、任务函数的完整模块
+- `APP/mpu6050.c` — 带 Mahony 姿态解算、陀螺零偏校准、跌倒/碰撞报警的完整模块
 - `APP/helmet_alarm.c` — 跨模块仲裁示例（RGB 唯一直写者，安全状态优先于云端/语音指令）
 - `APP/m100pg_protocol.c` — 协议层与硬件层解耦的范例（caller-owned context + 回调表）
 

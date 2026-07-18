@@ -10,18 +10,15 @@ extern "C" {
 /* MPU6050 I2C 地址（AD0 接地） */
 #define MPU6050_ADDR            0x68
 
-/* 数据读取寄存器（InvenSense 驱动内部处理其余寄存器） */
+/* 数据读取寄存器 */
 #define MPU6050_ACCEL_XOUTH_REG 0x3B
 #define MPU6050_GYRO_XOUTH_REG  0x43
 
-/* 初始化（含 DMP 固件加载、自检、校准） */
+/* 初始化（唤醒、量程、采样率、DLPF 与陀螺零偏校准） */
 void mpu6050_init(void);
 
 /* 调度器周期任务（10ms） */
 void mpu6050_task(void);
-
-/* DMP 姿态解算 */
-uint8_t mpu6050_dmp_get_data(float *pitch, float *roll, float *yaw);
 
 /* 原始数据读取 */
 uint8_t mpu6050_get_gyroscope(short *gx, short *gy, short *gz);

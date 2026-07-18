@@ -1049,26 +1049,6 @@
               <FilePath>..\APP\mpu6050.h</FilePath>
             </File>
             <File>
-              <FileName>mpu6050_inv_mpu.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\APP\mpu6050_inv_mpu.c</FilePath>
-            </File>
-            <File>
-              <FileName>mpu6050_inv_mpu.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\APP\mpu6050_inv_mpu.h</FilePath>
-            </File>
-            <File>
-              <FileName>mpu6050_inv_mpu_dmp_motion_driver.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\APP\mpu6050_inv_mpu_dmp_motion_driver.c</FilePath>
-            </File>
-            <File>
-              <FileName>mpu6050_inv_mpu_dmp_motion_driver.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\APP\mpu6050_inv_mpu_dmp_motion_driver.h</FilePath>
-            </File>
-            <File>
               <FileName>max30102.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\APP\max30102.c</FilePath>

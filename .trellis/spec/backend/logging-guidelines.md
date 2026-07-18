@@ -81,12 +81,12 @@ printf("[WRN] ringbuffer: overflow count=%u\r\n", overflow_count);
 
 ### 启动阶段（INFO）
 - 各模块初始化完成
-- 关键参数（时钟频率、DMP 采样率）
-- 自检结果
+- 关键参数（时钟频率、Mahony 固定步长、传感器采样率）
+- 陀螺零偏校准是否完成
 
 ### 运行时（WARN / ERROR）
 - 外设返回非 HAL_OK
-- DMP FIFO 读取失败
+- I2C 读取失败或传感器从 ready 退化为 unavailable
 - 环形缓冲区满 / 空导致的数据丢弃
 - I2C / UART 总线错误
 

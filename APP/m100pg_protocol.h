@@ -69,7 +69,7 @@ typedef enum {
  *   temp/hum  -> dht11_get_temperature/humidity (uint8_t)
  *   mq2       -> rounded mq2_get_trend_index()  (uint32_t)
  *   mq2_alarm -> mq2_is_trend_alarm()           (uint8_t)
- *   pitch...  -> mpu6050 dmp globals            (float)
+ *   pitch...  -> mpu6050 attitude globals       (float)
  *   fall/collision -> mpu6050 alarm getters      (uint8_t)
  *   hr/spo2   -> max30102 globals               (int32_t)
  *

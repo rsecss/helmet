@@ -36,10 +36,6 @@ extern "C" {
 #include "lcd_app.h"                    // LCD 传感器数据显示页面
 #include "scheduler.h"
 
-/* MPU6050 相关库 */
-#include "mpu6050_inv_mpu.h"
-#include "mpu6050_inv_mpu_dmp_motion_driver.h"
-
 /* 全局变量，数组声明 */
 extern uint32_t dma_buff[30];
 

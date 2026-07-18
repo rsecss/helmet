@@ -10,6 +10,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- MPU6050 姿态解算改用 MCU 侧自实现 Mahony 互补滤波（固定 10ms 步长），替代芯片内 DMP；`pitch`/`roll`/`yaw`、报警接口与遥测字段契约保持不变。
+
+### Removed
+
+- 移除 InvenSense 专有 DMP 驱动（`mpu6050_inv_mpu*`、`mpu6050_inv_mpu_dmp_motion_driver*` 及 3062 字节 DMP 固件），消除公开分发的第三方许可风险。
+
 ## [0.9.0] - 2026-05-19
 
 ### Added

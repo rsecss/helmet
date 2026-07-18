@@ -73,8 +73,11 @@ extern bool  fall_flag;
 /* APP/mpu6050.c（生产者） */
 void mpu6050_task(void)
 {
-    mpu6050_dmp_get_data(&pitch, &roll, &yaw);
-    fall_flag = ((fabs(pitch) > 60) | (fabs(roll) > 60));
+    if (mpu6050_get_accelerometer(&aacx, &aacy, &aacz)) return;
+    if (mpu6050_get_gyroscope(&gyrox, &gyroy, &gyroz)) return;
+    mpu6050_gyro_bias_autocal();
+    if (gyro_bias_valid == 0U) return;
+    mpu6050_mahony_update();
 }
 ```
 
@@ -771,5 +774,113 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void asrpro_task(void)
 {
     /* 从静态缓冲取完整行，裁剪 CR/LF/首尾空白，再执行固定命令 */
+}
+```
+
+---
+
+## Scenario: MPU6050 Mahony 姿态与陀螺零偏恢复
+
+### 1. Scope / Trigger
+
+修改 `APP/mpu6050.c` 的寄存器配置、调度周期、Mahony 参数、陀螺量程、零偏校准或
+`pitch/roll/yaw` 输出时适用。该模块使用纯六轴数据；加速度只能约束 pitch/roll，
+yaw 没有磁力计绝对参考，必须先扣除陀螺零偏。
+
+### 2. Signatures / Runtime State
+
+公开合同保持稳定：
+
+```c
+void mpu6050_init(void);
+void mpu6050_task(void);
+uint8_t mpu6050_is_ready(void);
+uint8_t mpu6050_get_gyroscope(short *gx, short *gy, short *gz);
+uint8_t mpu6050_get_accelerometer(short *ax, short *ay, short *az);
+
+extern float pitch, roll, yaw;
+extern short aacx, aacy, aacz;
+extern short gyrox, gyroy, gyroz;
+```
+
+模块内部必须分开表达两个状态：
+
+```c
+static uint8_t mpu6050_configured; /* 寄存器配置和 I2C 访问可用 */
+static uint8_t gyro_bias_valid;    /* 姿态解算可使用的陀螺零偏有效 */
+```
+
+`mpu6050_is_ready()` 仅在两个状态都有效时返回 `1`。
+
+### 3. Contracts
+
+- `mpu6050_task` 固定 10ms 调度，`MPU6050_MAHONY_DT` 必须同步为 `0.01f`。
+- 陀螺量程为 ±2000dps，软件换算使用 `16.4 LSB/(dps)`；修改量程必须同时修改灵敏度。
+- 上电校准先丢弃瞬态样本，再对静止窗口求三轴均值；任一 I2C 失败或峰峰值超限，
+  `gyro_bias_valid` 保持 `0`，不得假装初始化成功。
+- 上电校准失败后，周期任务仍读取原始六轴并收集 2 秒静止窗口；静止判定使用窗口
+  峰峰值，不能用“原始值与当前零偏的差”作为唯一条件，因为当前零偏可能无效。
+- 首次恢复有效零偏后重置 Mahony 四元数和积分项，再开始输出姿态；零偏无效期间不
+  更新姿态和报警，公开 ready 保持 `0`。
+- 已有有效零偏时，运行期候选零偏相对当前值的变化超过约 3dps 必须拒绝，防止将
+  明显旋转吸收为零偏。禁止固化某一块 MPU6050 的实测偏置常量。
+- `pitch/roll/yaw`、报警 getter 与遥测字段名称/类型不变；纯六轴 yaw 仍允许存在少量
+  长期漂移，但静止时不得保持 1~3°/s 的固定速率漂移。
+
+### 4. Validation & Error Matrix
+
+| 场景 | 必须行为 | 断言点 |
+|------|----------|--------|
+| 寄存器写入失败 | 模块保持未配置 | `mpu6050_is_ready()==0`，任务快速返回 |
+| 上电零偏读取失败或设备移动 | 配置保留，零偏无效 | 不更新姿态；进入运行期静止窗口恢复 |
+| 零偏无效且原始静止偏置超过旧阈值 | 仍能自愈 | 连续 200 个稳定样本后 `gyro_bias_valid==1` |
+| 窗口内峰峰值超过 164 raw | 拒绝该窗口 | 计数/累加/极值全部清零，零偏不变 |
+| 已校准后候选偏移超过 50 raw | 视为旋转而非温漂 | 保留原零偏，不重置 Mahony |
+| 静止且 raw 等于已校准零偏 | yaw 不累积 | 1000 次 10ms 更新后 yaw 接近 0 |
+| 调度周期改变 | 同步 Mahony dt 和校准样本数 | 物理时间仍为 2 秒，角速度积分比例正确 |
+
+### 5. Good/Base/Bad Cases
+
+**Good**：上电校准成功立即输出姿态；若校准失败，任务以原始值峰峰值判断静止，
+2 秒后恢复零偏并从干净四元数开始解算。
+
+**Base**：纯六轴 yaw 在长时间运行中缓慢漂移，但 pitch/roll 静止稳定，且跌倒/碰撞
+逻辑不依赖 yaw。
+
+**Bad**：校准函数返回 `void`，失败后仍置 ready；运行期又用无效零偏判断静止，
+导致原始偏置超过阈值时永远无法进入重校准。
+
+### 6. Tests Required
+
+- 主机桩编译 `APP/mpu6050.c`：`-std=c99 -Wall -Wextra -Werror`。
+- 模拟无效零偏、恒定 raw 偏置大于 50：200 个样本后断言零偏有效且均值正确。
+- 模拟有效零偏后的候选偏移大于 50：断言原零偏不变。
+- 模拟窗口交替跳变超过 164：断言零偏保持无效或原值不变。
+- 模拟 `accel=(0,0,1g)`、`gyro=已校准零偏` 连续 1000 次：断言 yaw 接近 0。
+- Keil F7 Build 零警告；实机静止 10 秒观察 pitch/roll 稳定、yaw 无固定速率漂移。
+- 实机移动上电后再静置：ready 应在静止约 2 秒后恢复，跌倒/碰撞报警仍可触发和清除。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```c
+mpu6050_calibrate_gyro_bias();
+mpu6050_ready = 1U; /* 校准失败被隐藏 */
+
+if (fabsf((float)gyroz - gyro_bias_z) > STILL_THRESHOLD)
+    reset_window();  /* gyro_bias_z 无效时可能永远无法自愈 */
+```
+
+#### Correct
+
+```c
+gyro_bias_valid = mpu6050_calibrate_gyro_bias();
+mpu6050_configured = 1U;
+
+collect_window_min_max_and_sum(gyrox, gyroy, gyroz);
+if (window_spread_is_stable()) {
+    update_gyro_bias_from_window();
+    gyro_bias_valid = 1U;
 }
 ```
