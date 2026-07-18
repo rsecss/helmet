@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-18
+
 ### Added
 
 - 添加 Apache-2.0 `LICENSE`；README 增加许可证说明与免责声明章节。
@@ -148,7 +150,8 @@
 
 - 初始化 SmartHelm 智能头盔项目框架：STM32F103C8T6 基础工程、CubeMX 时钟与外设配置、协作调度器骨架 ([86a9534](https://github.com/rsecss/helmet/commit/86a9534))
 
-[Unreleased]: https://github.com/rsecss/helmet/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/rsecss/helmet/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/rsecss/helmet/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/rsecss/helmet/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rsecss/helmet/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rsecss/helmet/compare/v0.6.0...v0.7.0
