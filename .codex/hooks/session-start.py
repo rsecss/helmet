@@ -236,7 +236,7 @@ If there is an active task, ask whether to continue it.
         },
     }
 
-    print(json.dumps(result, ensure_ascii=False), flush=True)
+    print(json.dumps(result, ensure_ascii=True), flush=True)
 
 
 if __name__ == "__main__":
