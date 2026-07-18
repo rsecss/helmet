@@ -48,19 +48,33 @@ helmet/
 裸机 + 轮询式协作调度器：`APP/scheduler.c` 基于 `HAL_GetTick()` 毫秒节拍执行静态任务表。
 RGB LED 由 `APP/helmet_alarm.c` 统一仲裁，优先级：跌倒/碰撞红灯 > MQ2 黄灯 > 云端/语音设定的常态颜色。
 
-```mermaid
-flowchart LR
-    MPU6050["MPU6050 六轴姿态"] <-->|"I2C1"| MCU
-    MAX30102["MAX30102 心率血氧"] <-->|"I2C2"| MCU
-    DHT11["DHT11 温湿度"] <-->|"1-Wire"| MCU
-    MQ2["MQ2 烟雾"] -->|"ADC + DMA"| MCU
-    ASR["ASRPro 离线语音"] -->|"USART1 中断"| MCU
-    MCU["STM32F103C8T6<br/>72 MHz 裸机协作调度器"]
-    MCU -->|"软件 SPI"| HUD["ST7735 HUD 128×128"]
-    MCU -->|"GPIO"| RGB["RGB LED 报警指示"]
-    MCU -->|"TIM3 PWM"| FAN["TB6612FNG + 风扇"]
-    MCU <-->|"USART2 DMA-IDLE"| DTU["M100PG 4G DTU"]
-    DTU <-->|"WebSocket"| WEB["helmet-console 浏览器"]
+```
+                    +---------------------------+
+                    |        ST7735 HUD         |
+                    |  (PB0 SCL / PA7 SDA / PB1)|
+                    +-------------▲-------------+
+                                  │ lcd_app_task 200ms
++----------+  I2C1  +----------+  │
+|  MPU6050 |◀──────▶|          │  │ helmet_alarm_task 20ms
+|  Mahony  |        │          │  ▼ (RGB 仲裁优先级)
++----------+        │          │ +-----------+        +-----------+
++----------+  I2C2  │          │ │  RGB LED  │◀──────▶│ helmet_   │
+| MAX30102 |◀──────▶│  STM32   │ │ PB12-14   │        │  alarm    │
++----------+        │ F103C8T6 │ +-----------+        +-----------+
++----------+ 1-Wire │   72MHz  │ +-----------+
+|  DHT11   |◀──────▶│   裸机   │ │ TB6612FNG │  TIM3_CH1 PWM
++----------+        │  调度器  │ │ + 风扇    │◀────────────┐
++----------+   ADC  │          │ +-----------+             │
+|   MQ2    |◀──────▶│          │                           │
++----------+   DMA  │          │              motor_speed_0..3
+                    │          │ USART1   +----------------▼----+
+                    │          │◀────────▶│  ASRPro 离线语音    │
+                    │          │  IT      │  led_on/off/motor   │
+                    │          │ USART2   +---------------------+
+                    │          │◀────────▶+---------------------+
+                    +----------+ DMA-IDLE │ M100PG 4G DTU       │
+                                          │ → WebSocket / 浏览器│
+                                          +---------------------+
 ```
 
 | 模块 | 周期 | 职责 |
