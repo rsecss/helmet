@@ -116,19 +116,17 @@ APP 目录的源文件必须通过质量门禁：无 cppcheck 警告、头文件
   ├─ 较大功能：可选开短命 feat/xxx 分支 → PR → squash 合 main → 删分支
   └─ feat/fix/perf/refactor 提交同步在 CHANGELOG.md [Unreleased] 段加一行
 
-发版（main 分支本地操作）
-  ├─ CHANGELOG.md：[Unreleased] 重命名为 [X.Y.Z] - YYYY-MM-DD，
-  │   顶部新建空 [Unreleased]，底部 compare 链接区追加 [X.Y.Z] 与更新 [Unreleased]
-  ├─ commit: chore(release): vX.Y.Z
-  ├─ git tag vX.Y.Z
-  └─ git push origin main --tags
+发版（唯一入口，禁止手工操作）
+  └─ scripts/release.sh vX.Y.Z
+      自动完成：前置校验 → CHANGELOG 滚动 → commit chore(release): vX.Y.Z
+      → 在该提交上打 annotated tag → 确认后推送 main 与 tag
 
 CI 自动 release.yml → 校验 tag/CHANGELOG → 质量门禁 → 抽取 CHANGELOG → 创建 GitHub Release
 ```
 
 **版本号（SemVer）**：MAJOR 不兼容 / MINOR 新增功能 / PATCH 仅修复。
 
-**分支模型**：`main` 为唯一长期分支，允许直接提交。功能开发可用短命 `feat/xxx` 分支，做完即合即删，不保留长期集成分支。
+**分支模型**：`main` 为唯一长期分支，默认直接提交（CI 会校验每个提交信息符合 Conventional Commits）。命中以下任一情况必须走短命分支 PR（squash 合并、做完即删）：新增功能模块或跨 ≥2 个 APP 模块的行为变更；改通信契约（M100PG 帧 / 命令字典 / 遥测字段、ASRPro 命令）；改 `helmet.ioc`、时钟、中断、DMA、引脚映射；需要多个提交逐步推进；拿不准时。发版不走 PR，统一使用 `chore(release):` 类型（废弃 `release:`）。完整规范见 `.github/开发与发版工作流.md`。
 
 ## 关键约定
 

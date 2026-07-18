@@ -145,6 +145,39 @@ jobs:
             echo "✓ 非 feat/fix 类 PR，跳过 CHANGELOG 同步检查"
           fi
 
+  push-commit-messages:
+    name: Conventional Commits 校验 (push)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验本次推送的所有提交信息
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert|release)(\([a-z0-9_-]+\))?!?: .+'
+          if git cat-file -e "$BEFORE" 2>/dev/null; then
+            RANGE="$BEFORE..$AFTER"
+          else
+            RANGE="$AFTER -1"   # 新建分支或历史缺失时只查最新提交
+          fi
+          fail=0
+          while IFS= read -r subject; do
+            case "$subject" in
+              "Merge "*) continue ;;   # merge 提交放行
+            esac
+            if ! echo "$subject" | grep -qE "$PATTERN"; then
+              echo "::error::提交信息 '$subject' 不符合 Conventional Commits 规范"
+              fail=1
+            fi
+          done < <(git log --format=%s $RANGE)
+          [ "$fail" -eq 0 ] && echo "✓ 本次推送提交信息全部合规"
+          exit $fail
+
   conventional-commits:
     name: Conventional Commits 校验
     runs-on: ubuntu-latest

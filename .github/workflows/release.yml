@@ -116,7 +116,7 @@ jobs:
             in_section && index($0, "## [") == 1   { exit }
             in_section && /^\[[^]]*\]: /           { exit }
             in_section                             { print }
-          ' CHANGELOG.md | awk 'NF { p=1 } p' > /tmp/changelog_body.md
+          ' CHANGELOG.md | grep -v '^---$' | awk 'NF { p=1 } p' > /tmp/changelog_body.md
 
           if [ ! -s /tmp/changelog_body.md ]; then
             echo "::error::CHANGELOG.md 中 ${HEADER} 段落抽取为空"
@@ -140,13 +140,15 @@ jobs:
         run: |
           {
             cat /tmp/changelog_body.md
-            echo ""
-            echo "<details>"
-            echo "<summary>📝 完整提交记录（自动生成）</summary>"
-            echo ""
-            printf '%s\n' "$CLIFF_BODY"
-            echo ""
-            echo "</details>"
+            if [ -n "$(printf '%s' "$CLIFF_BODY" | tr -d '[:space:]')" ]; then
+              echo ""
+              echo "<details>"
+              echo "<summary>📝 完整提交记录（自动生成）</summary>"
+              echo ""
+              printf '%s\n' "$CLIFF_BODY"
+              echo ""
+              echo "</details>"
+            fi
             echo ""
             if [ -n "$PREV" ]; then
               echo "**完整对比**: https://github.com/${REPO}/compare/${PREV}...v${VERSION}"
