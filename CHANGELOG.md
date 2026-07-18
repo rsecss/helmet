@@ -10,6 +10,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 添加 Apache-2.0 `LICENSE`；README 增加许可证说明与免责声明章节。
+
 ### Changed
 
 - MPU6050 姿态解算改用 MCU 侧自实现 Mahony 互补滤波（固定 10ms 步长），替代芯片内 DMP；`pitch`/`roll`/`yaw`、报警接口与遥测字段契约保持不变。

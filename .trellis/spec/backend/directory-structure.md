@@ -6,7 +6,7 @@
 
 ## Overview
 
-SmartHelm 采用三层架构：**感知层（STM32 固件）** → **传输层（UART + 4G DTU）** → **应用层（云端 + Web/小程序）**。
+SmartHelmet 采用三层架构：**感知层（STM32 固件）** → **传输层（UART + 4G DTU）** → **应用层（云端 + Web/小程序）**。
 
 **当前文档覆盖范围：感知层（STM32F103C8T6 嵌入式固件）**。传输层、应用层代码尚未开始，在相应代码落地时再扩展本文档。
 
@@ -207,7 +207,7 @@ Current board mapping in `APP/st7735.c`:
 - `CS`, `RES/RST`, and `BLK` are not firmware-controlled in the current wiring. If the panel stays white or does not receive commands, first wire `CS` to `GND` and `RES/RST` to `3.3V`; if the backlight is dark, wire `BLK` to `3.3V`.
 - The public header must not expose GPIO ports, pins, ST7735 command bytes, MADCTL values, offsets, or font table internals.
 - `APP/st7735.c` owns all display drawing and hardware bit-banging. It must not read DHT11/MQ2/MAX30102/MPU6050 data or own scheduler display policy.
-- `APP/lcd_app.c` owns the concrete SmartHelm sensor status page. It may read sensor module public getters or documented exported sensor values, then call `st7735_*` drawing APIs.
+- `APP/lcd_app.c` owns the concrete SmartHelmet sensor status page. It may read sensor module public getters or documented exported sensor values, then call `st7735_*` drawing APIs.
 - Other modules call public `st7735_*` or `lcd_app_*` APIs and must not write the display GPIO directly.
 - `st7735_init()` may run a visible hardware bring-up self-test. Runtime sensor page refresh belongs in `lcd_app_task()`, which must return quickly and only redraw dirty text regions.
 - The display path must not allocate a full-screen RGB565 framebuffer. Use direct/windowed writes such as `st7735_set_address_window()` plus bounded pixel loops.
@@ -215,7 +215,7 @@ Current board mapping in `APP/st7735.c`:
 - Mixed Chinese/ASCII text must use `st7735_draw_text()`. ASCII remains 6x12; Chinese glyphs are 12x12 so the page is same-height but not monospace.
 - `APP/lcd_font_lib.h` stores project-specific Chinese glyphs in `tfont_cn12` as UTF-8 byte keys: `unsigned char Index[4]` plus 24 bytes of 12x12 bitmap data. Do not use GBK/GB2312 string labels such as `"温"` or mojibake text as struct keys; Keil source-charset handling can turn them into `missing closing quote` compile errors or `char[n]` initializer width errors.
 - `APP/lcd_app.c` Chinese labels must be written as UTF-8 hex escapes inside C string literals, for example `"\xE6\xB8\xA9\xE5\xBA\xA6:%uC"` for `温度:%uC`. Chinese comments are fine; the restriction is on runtime string literals and font-table keys that the compiler must parse as C strings.
-- Keep `tfont_cn12` limited to glyphs used by SmartHelm LCD pages. When a new Chinese label is added, add only the required UTF-8 byte key and 12x12 bitmap entry.
+- Keep `tfont_cn12` limited to glyphs used by SmartHelmet LCD pages. When a new Chinese label is added, add only the required UTF-8 byte key and 12x12 bitmap entry.
 - When generating 12x12 glyphs from desktop fonts, validate the top row and baseline on hardware. Characters with top strokes or dots such as `温` and `度` must not lose their first visible stroke; adjust the rasterization Y offset before committing the table.
 - This write-only bus cannot verify real panel presence. Treat `[ST7735] init=0` plus visible color blocks/text as the practical bring-up gate.
 

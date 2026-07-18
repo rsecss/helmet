@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-SmartHelm — 开源智能头盔嵌入式固件项目，基于 STM32F103C8T6（Cortex-M3, 72MHz, 64KB Flash, 20KB SRAM）。使用 STM32CubeMX 生成外设初始化代码，Keil MDK-ARM V5 编译构建。
+SmartHelmet — 开源智能头盔嵌入式固件项目，基于 STM32F103C8T6（Cortex-M3, 72MHz, 64KB Flash, 20KB SRAM）。使用 STM32CubeMX 生成外设初始化代码，Keil MDK-ARM V5 编译构建。
 
 ## 构建
 

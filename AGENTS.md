@@ -25,7 +25,7 @@ Keep this managed block so 'trellis update' can refresh the instructions.
 
 ## Project
 
-SmartHelm is STM32F103C8T6 embedded firmware for a smart helmet. It uses STM32CubeMX, STM32 HAL, Keil MDK-ARM V5, and a bare-metal cooperative scheduler.
+SmartHelmet is STM32F103C8T6 embedded firmware for a smart helmet. It uses STM32CubeMX, STM32 HAL, Keil MDK-ARM V5, and a bare-metal cooperative scheduler.
 
 ## Decisions
 

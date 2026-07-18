@@ -12,6 +12,7 @@
 ![Last Commit](https://img.shields.io/github/last-commit/rsecss/helmet?label=LAST%20COMMIT&style=for-the-badge&labelColor=37474F&color=FF7043)
 ![Platform](https://img.shields.io/badge/PLATFORM-STM32F103C8T6-E53935?style=for-the-badge&labelColor=37474F)
 ![Lib](https://img.shields.io/badge/LIB-HAL-7E57C2?style=for-the-badge&labelColor=37474F)
+![License](https://img.shields.io/github/license/rsecss/helmet?label=LICENSE&style=for-the-badge&labelColor=37474F&color=03A9F4)
 
 发现 Bug 或有改进建议，欢迎提交 [Issue](https://github.com/rsecss/helmet/issues) 或 [PR](https://github.com/rsecss/helmet/pulls)。觉得有帮助的话，请点个 Star ⭐ 支持一下
 
@@ -47,33 +48,19 @@ helmet/
 裸机 + 轮询式协作调度器：`APP/scheduler.c` 基于 `HAL_GetTick()` 毫秒节拍执行静态任务表。
 RGB LED 由 `APP/helmet_alarm.c` 统一仲裁，优先级：跌倒/碰撞红灯 > MQ2 黄灯 > 云端/语音设定的常态颜色。
 
-```
-                    +---------------------------+
-                    |        ST7735 HUD         |
-                    |  (PB0 SCL / PA7 SDA / PB1)|
-                    +-------------▲-------------+
-                                  │ lcd_app_task 200ms
-+----------+  I2C1  +----------+  │
-|  MPU6050 |◀──────▶|          │  │ helmet_alarm_task 20ms
-|   六轴   |        │          │  ▼ (RGB 仲裁优先级)
-+----------+        │          │ +-----------+        +-----------+
-+----------+  I2C2  │          │ │  RGB LED  │◀──────▶│ helmet_   │
-| MAX30102 |◀──────▶│  STM32   │ │ PB12-14   │        │  alarm    │
-+----------+        │ F103C8T6 │ +-----------+        +-----------+
-+----------+ 1-Wire │   72MHz  │ +-----------+
-|  DHT11   |◀──────▶│   裸机    │  │ TB6612FNG│  TIM3_CH1 PWM
-+----------+        │ scheduler|  │ + 风扇    │◀──────────┐
-+----------+   ADC  │          │ +-----------+           │
-|   MQ2    |◀──────▶│          │                         │
-+----------+   DMA  │          │              motor_speed_0..3
-                    │          │ USART1   +----------------▼----+
-                    │          │◀────────▶│  ASRPro 离线语音     │
-                    │          │  IT      │  led_on/off/motor   │
-                    │          │ USART2   +---------------------+
-                    │          │◀────────▶+---------------------+
-                    +----------+ DMA-IDLE │ M100PG 4G DTU       │
-                                          │ → WebSocket / 浏览器 │
-                                          +---------------------+
+```mermaid
+flowchart LR
+    MPU6050["MPU6050 六轴姿态"] <-->|"I2C1"| MCU
+    MAX30102["MAX30102 心率血氧"] <-->|"I2C2"| MCU
+    DHT11["DHT11 温湿度"] <-->|"1-Wire"| MCU
+    MQ2["MQ2 烟雾"] -->|"ADC + DMA"| MCU
+    ASR["ASRPro 离线语音"] -->|"USART1 中断"| MCU
+    MCU["STM32F103C8T6<br/>72 MHz 裸机协作调度器"]
+    MCU -->|"软件 SPI"| HUD["ST7735 HUD 128×128"]
+    MCU -->|"GPIO"| RGB["RGB LED 报警指示"]
+    MCU -->|"TIM3 PWM"| FAN["TB6612FNG + 风扇"]
+    MCU <-->|"USART2 DMA-IDLE"| DTU["M100PG 4G DTU"]
+    DTU <-->|"WebSocket"| WEB["helmet-console 浏览器"]
 ```
 
 | 模块 | 周期 | 职责 |
@@ -166,3 +153,15 @@ temp=23,hum=60,mq2=120,mq2_alarm=0,pitch=1.2,roll=-0.5,yaw=180.0,fall=0,collisio
 | `ping` / `pong` | 心跳，静默忽略 | ✔ | — |
 
 语音接线 ASR_TX → PA10、ASR_RX → PA9（115200-8N1）；命令为小写英文 + `\n`，严格等长匹配（不做模糊 / 大小写转换）。USART1 为纯语音串口，printf 调试输出默认关闭，需要时打开 `APP/asrpro.h` 中的 `ASRPRO_ENABLE_USART1_DEBUG` 重新编译。
+
+## 许可证
+
+[Apache License 2.0](LICENSE)
+
+## 免责声明
+
+- 本项目内容**按原样提供（AS-IS）**，不提供任何明示或暗示的保证
+- 本项目仅供学习交流使用，未经任何安全或医疗认证，不得用于安全防护或医疗用途
+- 作者不对代码的正确性、完整性、适用性或可靠性做任何承诺
+- 使用者需自行评估内容适用性并承担全部使用风险
+- 在任何情况下，作者均不对因使用或无法使用本项目内容而导致的任何直接、间接、偶然、特殊、惩罚性或后果性损害承担责任
